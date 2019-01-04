@@ -28,7 +28,7 @@ data MachineKey a where
     -- ^ memory address
     F    :: Flag -> MachineKey Bool
     -- -- ^ flag
-    -- IC   :: MachineKey ()
+    IC   :: MachineKey MachineValue
     -- -- ^ instruction counter
     -- IR   :: MachineKey ()
     -- -- ^ instruction register
@@ -51,11 +51,11 @@ haltF :: FS Functor ()
 haltF read write = Just . void $
     write (F Halted) ((const True) <$> read (F Halted))
 
--- -- | Halt the execution.
--- --   Applicative.
--- haltA :: MachineValue a => Semantics Applicative MachineKey a ()
--- haltA read write = Just $
---     write (F Halted) (pure 1)
+-- | Halt the execution.
+--   Applicative.
+haltA :: FS Applicative ()
+haltA read write = Just . void $
+    write (F Halted) (pure True)
 
 -- | Load a value from a memory location to a register.
 --   Functor.
@@ -66,34 +66,23 @@ load reg addr read write = Just . void $
 
 -- -- | Set a register value.
 -- --   Functor.
--- setF :: MachineValue a => Register -> SImm8
---                        -> Semantics Functor MachineKey a ()
--- setF reg simm read write = Just $
---     write (Reg reg) ((const . unsafeFromSImm8 $ simm) <$> (read (Reg reg)))
+-- setF :: Register -> SImm8
+--      -> FS Functor ()
+-- setF reg simm read write = Just . void $
+--     write (Reg reg) ((const . fromIntegral $ simm) <$> (read (Reg reg)))
 
 -- -- | Set a register value.
 -- --   Applicative.
 -- setA :: MachineValue a => Register -> SImm8
 --                        -> Semantics Applicative MachineKey a ()
 -- setA reg simm read write = Just $
---     write (Reg reg) (pure . unsafeFromSImm8 $ simm)
+--     write (Reg reg) (pure . fromIntegral $ simm)
 
--- -- | Store a value from a register to a memory location.
--- --   Functor.
--- store :: MachineValue a => Register -> MemoryAddress
---                         -> Semantics Functor MachineKey a ()
--- store reg addr read write = Just $
---     write (Addr addr) (read (Reg reg) )
-
--- -- | Add a value from memory location to one in a register.
--- --   Applicative.
--- add :: MachineValue a => Register -> MemoryAddress
---                       -> Semantics Applicative MachineKey a ()
--- add reg addr = \read write -> Just $
---     let result = (+) <$> read (Reg reg) <*> read (Addr addr)
---     in  write (F Zero)  result *>
---         write (Reg reg) result
-
+-- | Store a value from a register to a memory location.
+--   Functor.
+store :: Register -> MemoryAddress -> FS Functor ()
+store reg addr read write = Just . void $
+    write (Addr addr) (read (Reg reg))
 
 -- | Add a value from memory location to one in a register.
 --   Applicative.
@@ -102,23 +91,6 @@ add :: Register -> MemoryAddress
 add reg addr = \read write -> Just . void $
     let result = (+) <$> (read (Reg reg)) <*> read (Addr addr)
     in write (F Zero) ((== 0) <$> write (Reg reg) result)
-        -- write2 (F Zero) (Reg reg) result
-
--- -- | Add a value from memory location to one in a register. Tracks overflow.
--- --   Selective.
--- addS :: MachineValue a => Register -> MemoryAddress -> Semantics Selective MachineKey a ()
--- addS reg addr = \read write -> Just $
---     let arg1   = read (Reg reg)
---         arg2   = read (Addr addr)
---         result = (+) <$> read (Reg reg) <*> read (Addr addr)
---         o1 = gt <$> arg2 <*> pure 0
---         o2 = gt <$> arg1 <*> ((-) <$> pure maxBound <*> arg2)
---         o3 = lt <$> arg2 <*> pure 0
---         o4 = lt <$> arg1 <*> ((-) <$> pure minBound <*> arg2)
---         o  = or <$> (and <$> o1 <*> o2)
---                 <*> (and <$> o3 <*> o4)
---     in  write (F Overflow) o *>
---         write (Reg reg) result
 
 -- -- | Sub a value from memory location to one in a register.
 -- --   Applicative.
@@ -154,33 +126,32 @@ add reg addr = \read write -> Just . void $
 --     in  write (F Zero)  result *>
 --         write (Reg reg) result
 
--- abs :: MachineValue a => Register -> Semantics Functor MachineKey a ()
--- abs reg = \read write -> Just $
---     let result = Prelude.abs <$> read (Reg reg)
---     in  write (Reg reg) result
+abs :: Register -> FS Functor ()
+abs reg = \read write -> Just . void $
+    let result = Prelude.abs <$> read (Reg reg)
+    in  write (Reg reg) result
 
--- -- | Unconditional jump.
--- --   Functor.
--- jump :: MachineValue a => SImm8 -> Semantics Functor MachineKey a ()
--- jump simm read write = Just $
---     write IC (fmap ((+) . unsafeFromSImm8 $ simm) (read IC))
+-- | Unconditional jump.
+--   Functor.
+jump :: SImm8 -> FS Functor ()
+jump simm read write = Just . void $
+    write IC (fmap ((+) . fromIntegral $ simm) (read IC))
 
--- -- | Indirect memory access.
--- --   Monadic.
--- loadMI :: MachineValue a => Register -> MemoryAddress
---                          -> Semantics Monad MachineKey a ()
--- loadMI reg addr read write = undefined
---     -- Just $ do
---     -- addr' <- read (Addr addr)
---     -- write (Reg reg) (read (Addr addr'))
+-- | Indirect memory access.
+--   Monadic.
+loadMI :: Register -> MemoryAddress -> FS Monad ()
+loadMI reg addr read write = Just . void $ do
+    addr' <- read (Addr addr)
+    write (Reg reg) (read (Addr addr'))
 
 -- -- | Jump if 'Zero' flag is set.
 -- --   Selective.
 -- jumpZero :: MachineValue a => SImm8 -> Semantics Selective MachineKey a ()
 -- jumpZero simm read write = Just $
 --     ifS (unsafeToBool <$> (eq <$> read (F Zero) <*> pure 0))
---         (write IC (fmap ((+) . unsafeFromSImm8 $ simm) (read IC)))
+--         (write IC (fmap ((+) . fromIntegral $ simm) (read IC)))
 --         (write IC $ read IC)
+
 -- --------------------------------------------------------------------------------
 -- executeInstruction :: Semantics Monad MachineKey Value ()
 -- executeInstruction = \read write -> Just $ do
