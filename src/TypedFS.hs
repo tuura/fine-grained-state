@@ -6,8 +6,12 @@
 module TypedFS (Key(..), FS, dependencies) where
 
 import Prelude hiding (Read)
+import Control.Selective hiding (dependencies)
 import Data.Either (partitionEithers)
 import Data.Functor.Const
+import Algebra.Graph
+import Algebra.Graph.Export.Dot
+import qualified Data.Set as Set
 
 -- | A type class for keys, equipped with an associated type family that
 -- can be used to determine the type of value corresponding to the key.
@@ -39,19 +43,28 @@ type Read f a = forall k. Key k => k -> f (Value k)
 
 type Write f a = forall k. Key k => k -> f (Value k) -> f (Value k)
 
-type FS c a = forall f. c f => Read f a -> Write f a -> Maybe (f a)
-
--- type FS c a = forall f. c f => (forall k. Key k => k -> f (Value k)) ->
---                                (forall k. Key k => k -> f (Value k) -> f (Value k)) ->
---                                Maybe (f a)
+type FS c a = forall f. c f => Read f a -> Write f a -> f a
 
 -- | Calculate data dependencies of a semantic computation
 --   The computation must have only static dependencies, hence the
 --   'Applicative' constraint. In case of presence of non-static dependecies
 --   'Nothing' is returned.
-dependencies :: FS Applicative a -> Maybe ([String], [String])
+dependencies :: FS Selective a -> ([String], [String])
 dependencies task =
-    partitionEithers . getConst <$>
+    partitionEithers . getConst $
     task trackingRead trackingWrite
   where trackingRead  k    = Const [Left (showKey k)]
         trackingWrite k fv = fv *> Const [Right (showKey k)]
+
+-- graph :: Ord k => (k -> ([k], [k])) -> k -> Graph k
+-- graph deps key = transpose $ overlays [ star k (deps k) | k <- keys Set.empty [key] ]
+--   where
+--     keys seen []   = Set.toList seen
+--     keys seen (x:xs)
+--         | x `Set.member` seen = keys seen xs
+--         | otherwise           = keys (Set.insert x seen) (deps x ++ xs)
+
+-- draw :: FS Selective v -> String -> String
+-- draw computation = exportAsIs . graph deps
+--   where
+--     deps k = maybe ([], []) dependencies $ computation k

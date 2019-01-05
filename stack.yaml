@@ -38,7 +38,12 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
-# extra-deps: []
+extra-deps:
+- github: snowleopard/selective
+  commit: 7b7e8a1bbf1b1721ad09d55eb259db94a76819e0
+- build-1.0
+- algebraic-graphs-0.1.1.1
+- containers-0.5.11.0
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

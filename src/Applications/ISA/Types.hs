@@ -29,8 +29,6 @@ module Applications.ISA.Types (
     -- System clock
     Clock,
 
-    InstructionAddress,
-
     -- Numbers to [Bool] conversion
     fromBitsLE, blastLE
     ) where
@@ -74,12 +72,6 @@ type Flags = Map.Map Flag MachineValue
 -- | 'Clock' is the current time measured in clock cycles. It used to model the
 -- effect of the 'Iam.Semantics.wait' instruction.
 type Clock = MachineValue
-
--- | Programs are stored in program memory.
-type InstructionAddress = MachineValue
-
--- | Binary representation of an instruction
-type InstructionCode = MachineValue -- Word16
 
 --------------------------------------------------------------------------------
 fromBitsLE :: (FiniteBits a, Num a) => [Bool] -> a

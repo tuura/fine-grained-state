@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2d831034163ab106f1c395069c75b3952be4e801bd861de2e6664b9693ac34bc
+-- hash: ca0b50b782a9f38bf91868b1fff2682c55206c3789d4e7eb8815de36f17765fc
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -27,16 +27,19 @@ source-repository head
 library
   exposed-modules:
       Applications.ISA
+      Applications.ISA.Instruction
+      Applications.ISA.Program
       Applications.ISA.Types
-      FS
       TypedFS
   other-modules:
       Paths_fine_grained_state
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      algebraic-graphs
+    , base >=4.7 && <5
     , containers
+    , selective
   default-language: Haskell2010
 
 executable fine-grained-state-exe
@@ -45,11 +48,13 @@ executable fine-grained-state-exe
       Paths_fine_grained_state
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -fwarn-incomplete-patterns
   build-depends:
-      base >=4.7 && <5
+      algebraic-graphs
+    , base >=4.7 && <5
     , containers
     , fine-grained-state
+    , selective
   default-language: Haskell2010
 
 test-suite fine-grained-state-test
@@ -61,7 +66,9 @@ test-suite fine-grained-state-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      algebraic-graphs
+    , base >=4.7 && <5
     , containers
     , fine-grained-state
+    , selective
   default-language: Haskell2010
