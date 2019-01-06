@@ -59,25 +59,25 @@ boot prog mem = MachineState { registers = emptyRegisters
 
 --------------------------------------------------------------------------------
 
--- runModel :: Int -> MachineState -> MachineState
--- runModel steps state
---     | steps <= 0 = state
---     | otherwise  = if halted then state else runModel (steps - 1) nextState
---   where
---     halted    = (Map.!) (flags state) Halted
---     nextState = snd $ runState (executeInstruction readKey writeKey) state
-
 runModel :: Int -> MachineState -> MachineState
 runModel steps state
     | steps <= 0 = state
     | otherwise  = if halted then state else runModel (steps - 1) nextState
   where
     halted    = (Map.!) (flags state) Halted
-    nextState = snd $ runState (add R0 0 readKey writeKey) state
+    nextState = snd $ runState (executeInstruction readKey writeKey) state
+
+-- runModel :: Int -> MachineState -> MachineState
+-- runModel steps state
+--     | steps <= 0 = state
+--     | otherwise  = if halted then state else runModel (steps - 1) nextState
+--   where
+--     halted    = (Map.!) (flags state) Halted
+--     nextState = snd $ runState (add R0 0 readKey _) state
 
 -- | Instance of the Machine.Metalanguage read command for simulation
 readKey :: MachineKey a
-        -> State MachineState a
+        -> State MachineState (Value (MachineKey a))
 readKey = \case
     Reg  reg  -> readRegister reg
     Addr addr -> readMemory   addr
@@ -88,15 +88,16 @@ readKey = \case
 
 -- | Instance of the Machine.Metalanguage write command for simulation
 writeKey :: MachineKey a
-         -> State MachineState a
-         -> State MachineState ()
+         -> State MachineState (Value (MachineKey a))
+         -> State MachineState (Value (MachineKey a))
 writeKey k v = case k of
     Reg  reg  -> v >>= writeRegister reg
     Addr addr -> v >>= writeMemory   addr
     F    flag -> v >>= writeFlag flag
     IC        -> do
-        ic' <- v
+        ic' <- (+ 1) <$> v
         modify $ \currentState -> currentState {instructionCounter = ic'}
+        pure ic'
     IR        -> v >>= writeInstructionRegister
     Prog addr -> error "Machine.Semantics.Symbolic: Can't write Program"
 
@@ -116,12 +117,13 @@ delay cycles =
 
 -- | Write a new 'Value' to the given 'MemoryAddress'. We assume that it takes 2
 -- clock cycles to access the memory in hardware.
-writeMemory :: MemoryAddress -> MachineValue -> State MachineState ()
+writeMemory :: MemoryAddress -> MachineValue -> State MachineState MachineValue
 writeMemory address value = do
     delay 2
     modify $ \currentState ->
         currentState {memory =
             Map.adjust (const value) address (memory currentState)}
+    pure value
 
 -- | Lookup the 'Value' at the given 'MemoryAddress'. If the value has never
 -- been initialised, this function returns 0. We assume that it
@@ -153,11 +155,12 @@ readRegister register = do
 
 -- | Write a new 'Value' to a given 'Register'.
 --   We assume that it takes 1 clock cycle to access a register in hardware.
-writeRegister :: Register -> MachineValue -> State MachineState ()
+writeRegister :: Register -> MachineValue -> State MachineState MachineValue
 writeRegister register value = do
     delay 1
     modify $ \currentState ->
         currentState {registers = Map.adjust (const value) register (registers currentState)}
+    pure value
 
 --------------------------------------------------------------------------------
 ------------ Flags ---------------------------------------------------------
@@ -173,12 +176,13 @@ readFlag flag = do
 -- | Set a given 'Flag' to the specified Boolean value.
 --   We assume that it takes 1 clock cycle to access
 --   the flag register in hardware.
-writeFlag :: Flag -> Bool -> State MachineState ()
+writeFlag :: Flag -> Bool -> State MachineState Bool
 writeFlag flag value = do
     delay 1
     modify $ \currentState ->
         currentState {
             flags = Map.adjust (const value) flag (flags currentState)}
+    pure value
 
 --------------------------------------------------------------------------------
 ------------ Program -----------------------------------------------------------
@@ -191,7 +195,7 @@ incrementInstructionCounter =
 
 fetchInstruction :: State MachineState ()
 fetchInstruction =
-    get >>= readProgram . instructionCounter >>= writeInstructionRegister
+    get >>= readProgram . instructionCounter >>= writeInstructionRegister >> pure ()
 
 readProgram :: InstructionAddress -> State MachineState (Instruction Functor)
 readProgram addr = do
@@ -202,7 +206,9 @@ readProgram addr = do
 readInstructionRegister :: State MachineState (Instruction Functor)
 readInstructionRegister = instructionRegister <$> get
 
-writeInstructionRegister :: Instruction Functor -> State MachineState ()
-writeInstructionRegister instruction =
+writeInstructionRegister :: Instruction Functor
+                         -> State MachineState (Instruction Functor)
+writeInstructionRegister instruction = do
     modify $ \currentState ->
         currentState {instructionRegister = instruction}
+    pure instruction

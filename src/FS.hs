@@ -49,12 +49,21 @@ type FS c a = forall f. c f => Read f a -> Write f a -> f a
 --   The computation must have only static dependencies, hence the
 --   'Applicative' constraint. In case of presence of non-static dependecies
 --   'Nothing' is returned.
+-- dependencies :: FS Selective a -> ([String], [String])
+-- dependencies task =
+--     partitionEithers . getConst $
+--     task trackingRead trackingWrite
+--   where trackingRead  k    = Const [Left (showKey k)]
+--         trackingWrite k fv = fv *> Const [Right (showKey k)]
+
 dependencies :: FS Selective a -> ([String], [String])
 dependencies task =
     partitionEithers . getConst $
     task trackingRead trackingWrite
-  where trackingRead  k    = Const [Left (showKey k)]
-        trackingWrite k fv = fv *> Const [Right (showKey k)]
+
+trackingRead  k    = Const [Left (showKey k)]
+
+trackingWrite k fv = fv *> Const [Right (showKey k)]
 
 -- graph :: Ord k => (k -> ([k], [k])) -> k -> Graph k
 -- graph deps key = transpose $ overlays [ star k (deps k) | k <- keys Set.empty [key] ]
