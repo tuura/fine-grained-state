@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1922416845ee809eaa9e2a90532b03f0bdc6293801b104b8c347f539707d7eab
+-- hash: b39f4ff5748dd001e1eef778fd618ac08998ecb1fcda4ef2b907990d16ed8f96
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
       Applications.ISA
       Applications.ISA.Instruction
       Applications.ISA.Program
+      Applications.ISA.Simulator
       Applications.ISA.Types
       FS
   other-modules:
@@ -39,6 +40,7 @@ library
       algebraic-graphs
     , base >=4.7 && <5
     , containers
+    , mtl
     , selective
   default-language: Haskell2010
 
@@ -54,6 +56,7 @@ executable fine-grained-state-exe
     , base >=4.7 && <5
     , containers
     , fine-grained-state
+    , mtl
     , selective
   default-language: Haskell2010
 
@@ -70,5 +73,6 @@ test-suite fine-grained-state-test
     , base >=4.7 && <5
     , containers
     , fine-grained-state
+    , mtl
     , selective
   default-language: Haskell2010

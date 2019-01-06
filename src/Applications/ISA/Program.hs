@@ -11,7 +11,7 @@ import Applications.ISA.Instruction
 
 -- | The program is represented by a map from instruction addresses to
 --   instructions.
-type Program = [(InstructionAddress, InstructionCode)]
+type Program = [(InstructionAddress, Instruction Functor)]
 
 -- readProgram :: FilePath -> IO Program
 -- readProgram = (fmap parseProgram) . readFile

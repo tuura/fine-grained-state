@@ -67,7 +67,7 @@ flagId :: Flag -> FlagId
 flagId = fromIntegral . fromEnum
 
 -- | The state of flags is represented by a map from flags to their values.
-type Flags = Map.Map Flag MachineValue
+type Flags = Map.Map Flag Bool
 
 -- | 'Clock' is the current time measured in clock cycles. It used to model the
 -- effect of the 'Iam.Semantics.wait' instruction.

@@ -12,7 +12,7 @@
 
 module Applications.ISA where
 
-import Prelude hiding (Monad, abs, div, mod)
+import Prelude hiding (Monad, abs, div, mod, readIO)
 import qualified Prelude (Monad, abs, div, mod)
 import Data.Functor (void)
 import Data.Foldable (sequenceA_)
@@ -36,9 +36,9 @@ data MachineKey a where
     -- -- ^ flag
     IC   :: MachineKey MachineValue
     -- -- ^ instruction counter
-    IR   :: MachineKey (Instruction Unconstrained)
+    IR   :: MachineKey (Instruction Functor)
     -- ^ instruction register
-    Prog :: InstructionAddress -> MachineKey (Instruction Unconstrained)
+    Prog :: InstructionAddress -> MachineKey (Instruction Functor)
     -- ^ program memory address
 
 instance Key (MachineKey a) where
@@ -56,23 +56,23 @@ instance Show (MachineKey a) where
 
 semantics :: [Instruction Applicative] -> FS Applicative ()
 semantics program read write =
-    sequenceA_ $ map (\i -> instruction i read write) program
-    where
-        instruction :: Instruction c -> FS c ()
-        instruction i read write = case i of
-            Halt -> haltF read write
-            Load reg addr -> load reg addr read write
-            LoadMI reg addr -> loadMI reg addr read write
-            Set reg simm8  -> setF reg simm8 read write
-            Store reg addr -> store reg addr read write
-            Add reg addr   -> add reg addr read write
-            Sub reg addr   -> sub reg addr read write
-            Mul reg addr   -> mul reg addr read write
-            Div reg addr   -> div reg addr read write
-            Mod reg addr   -> mod reg addr read write
-            Abs reg        -> abs reg read write
-            Jump simm8     -> jump simm8 read write
-            JumpZero simm8 -> jumpZero simm8 read write
+    sequenceA_ $ map (\i -> instructionSemantics i read write) program
+
+instructionSemantics :: Instruction c -> FS c ()
+instructionSemantics i read write = case i of
+    Halt -> haltF read write
+    Load reg addr -> load reg addr read write
+    LoadMI reg addr -> loadMI reg addr read write
+    Set reg simm8  -> setF reg simm8 read write
+    Store reg addr -> store reg addr read write
+    Add reg addr   -> add reg addr read write
+    Sub reg addr   -> sub reg addr read write
+    Mul reg addr   -> mul reg addr read write
+    Div reg addr   -> div reg addr read write
+    Mod reg addr   -> mod reg addr read write
+    Abs reg        -> abs reg read write
+    Jump simm8     -> jump simm8 read write
+    JumpZero simm8 -> jumpZero simm8 read write
 
 -- | Halt the execution.
 --   Functor.
@@ -180,16 +180,23 @@ jumpZero simm read write = void $
 type Monad m = (Selective m, Prelude.Monad m)
 
 -- --------------------------------------------------------------------------------
--- executeInstruction :: FS Monad ()
--- executeInstruction = \read write -> do
---     -- fetch instruction
---     ic <- read IC
---     write IR (read (Prog ic))
---     -- increment instruction counter
---     write IC (pure $ ic + 1)
---     -- read instruction register and execute the instruction
---     i <- read IR
---     semantics i read write
+executeInstruction :: FS Monad ()
+executeInstruction = \read write -> do
+    -- fetch instruction
+    ic <- read IC
+    write IR (read (Prog ic))
+    -- increment instruction counter
+    write IC (pure $ ic + 1)
+    -- read instruction register and execute the instruction
+    i <- read IR
+    instructionSemantics i read write
+
+-- readIO :: MachineKey a -> IO a
+-- readIO k = do putStr (show k ++ ": "); read <$> getLine
+
+-- writeIO :: (Show k, Read v) => k -> IO v -> IO v
+-- writeIO k v = undefined
+
 -- executeInstruction :: FS Selective ()
 -- executeInstruction = \read write ->
 --     -- fetch instruction
