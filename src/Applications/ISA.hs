@@ -19,7 +19,7 @@ import Data.Foldable (sequenceA_)
 import Control.Selective hiding (dependencies)
 import Applications.ISA.Types
 import Applications.ISA.Instruction
-import TypedFS
+import FS
 
 -- | 'MachineKey' will instantiate the 'k' type variable in the 'Semantics'
 --   metalanguage.

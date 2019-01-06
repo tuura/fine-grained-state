@@ -12,7 +12,7 @@ module Applications.ISA.Instruction where
 import GHC.Exts (Constraint)
 import Data.Functor (void)
 import Control.Selective
-import TypedFS
+import FS
 import Applications.ISA.Types
 
 class Unconstrained (a :: * -> *)

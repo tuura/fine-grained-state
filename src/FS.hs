@@ -3,7 +3,7 @@
              FlexibleInstances,
              TypeFamilies #-}
 
-module TypedFS (Key(..), FS, dependencies) where
+module FS (Key(..), FS, dependencies) where
 
 import Prelude hiding (Read)
 import Control.Selective hiding (dependencies)

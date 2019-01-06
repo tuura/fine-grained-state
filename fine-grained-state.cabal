@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ca0b50b782a9f38bf91868b1fff2682c55206c3789d4e7eb8815de36f17765fc
+-- hash: 1922416845ee809eaa9e2a90532b03f0bdc6293801b104b8c347f539707d7eab
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -30,7 +30,7 @@ library
       Applications.ISA.Instruction
       Applications.ISA.Program
       Applications.ISA.Types
-      TypedFS
+      FS
   other-modules:
       Paths_fine_grained_state
   hs-source-dirs:
