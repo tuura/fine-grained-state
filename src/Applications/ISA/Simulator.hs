@@ -11,7 +11,7 @@ module Applications.ISA.Simulator (
     dumpMemory,
 
     -- * Simulate the machine execution
-    -- runModel
+    runModel
     ) where
 
 import Control.Monad.State
@@ -27,7 +27,7 @@ import Applications.ISA
 data MachineState = MachineState
     { registers           :: RegisterBank
     , instructionCounter  :: InstructionAddress
-    , instructionRegister :: Instruction Functor
+    , instructionRegister :: Instruction
     , flags               :: Flags
     , memory              :: Memory
     , program             :: Program
@@ -51,7 +51,7 @@ dumpMemory from to m = map ((Map.!) m) [from..to]
 boot :: Program -> Memory -> MachineState
 boot prog mem = MachineState { registers = emptyRegisters
                              , instructionCounter = 0
-                             , instructionRegister = Jump 0
+                             , instructionRegister = IF $ Jump 0
                              , program = prog
                              , flags = emptyFlags
                              , memory = mem
@@ -190,17 +190,17 @@ fetchInstruction :: State MachineState ()
 fetchInstruction =
     get >>= readProgram . instructionCounter >>= writeInstructionRegister >> pure ()
 
-readProgram :: InstructionAddress -> State MachineState (Instruction Functor)
+readProgram :: InstructionAddress -> State MachineState Instruction
 readProgram addr = do
     currentState <- get
     delay 1
     pure . snd $ (!!) (program currentState) (fromIntegral addr)
 
-readInstructionRegister :: State MachineState (Instruction Functor)
+readInstructionRegister :: State MachineState Instruction
 readInstructionRegister = instructionRegister <$> get
 
-writeInstructionRegister :: Instruction Functor
-                         -> State MachineState (Instruction Functor)
+writeInstructionRegister :: Instruction
+                         -> State MachineState Instruction
 writeInstructionRegister instruction = do
     modify $ \currentState ->
         currentState {instructionRegister = instruction}

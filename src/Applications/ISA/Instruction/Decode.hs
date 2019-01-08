@@ -18,46 +18,46 @@ import Data.Word (Word16)
 import Data.Maybe (fromJust)
 import Data.Monoid ((<>))
 
--- decode :: InstructionCode -> Instruction
--- decode code =
---     let expandedCode = blastLE code
---         opcode = take 6 expandedCode
---     in if | opcode == [f, f, f, f, f, f] -> IF Halt -- haltF read write
---           | opcode == [f, f, f, f, f, t]  ->
---                 IF $ Load (decodeRegister . extractRegister $ expandedCode)
---                           (fromBitsLE $ extractMemoryAddress expandedCode)
---           | opcode == [f, f, f, f, t, f]   ->
---                 IS $ LoadMI (decodeRegister . extractRegister $ expandedCode)
---                        (fromBitsLE $ extractMemoryAddress expandedCode)
---           | opcode == [f, f, f, f, t, t]  ->
---                 IF $ Set (decodeRegister . extractRegister $ expandedCode)
---                      (fromBitsLE $ extractSImm8 expandedCode)
---           | opcode == [f, f, f, t, f, f]   ->
---                 IF $ Store (decodeRegister . extractRegister $ expandedCode)
---                       (fromBitsLE $ extractMemoryAddress expandedCode)
---           | opcode == [f, f, f, t, f, t]   ->
---                 IA $ Add (decodeRegister . extractRegister $ expandedCode)
---                     (fromBitsLE $ extractMemoryAddress expandedCode)
---           | opcode == [f, f, f, t, t, f]   ->
---                 IF $ Jump (fromBitsLE $ extractSImm8Jump expandedCode)
---           | opcode == [f, f, f, t, t, t]    ->
---                 IS $ JumpZero (fromBitsLE $ extractSImm8Jump expandedCode)
---           | opcode == [f, f, t, f, f, f]   ->
---                 IA $ Sub (decodeRegister . extractRegister $ expandedCode)
---                     (fromBitsLE $ extractMemoryAddress expandedCode)
---           | opcode == [f, f, t, f, f, t]   ->
---                 IA $ Mul (decodeRegister . extractRegister $ expandedCode)
---                     (fromBitsLE $ extractMemoryAddress expandedCode)
---           | opcode == [f, f, t, f, t, f]   ->
---                 IA $ Div (decodeRegister . extractRegister $ expandedCode)
---                     (fromBitsLE $ extractMemoryAddress expandedCode)
---           | opcode == [f, f, t, f, t, t]   ->
---                 IA $ Mod (decodeRegister . extractRegister $ expandedCode)
---                     (fromBitsLE $ extractMemoryAddress expandedCode)
---           | opcode == [f, f, t, t, f, f]   ->
---                 IA $ Abs (decodeRegister . extractRegister $ expandedCode)
---       where f = False
---             t = True
+decode :: InstructionCode -> Instruction
+decode code =
+    let expandedCode = blastLE code
+        opcode = take 6 expandedCode
+    in if | opcode == [f, f, f, f, f, f] -> IF Halt -- haltF read write
+          | opcode == [f, f, f, f, f, t]  ->
+                IF $ Load (decodeRegister . extractRegister $ expandedCode)
+                          (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, f, f, f, t, f]   ->
+                IS $ LoadMI (decodeRegister . extractRegister $ expandedCode)
+                       (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, f, f, f, t, t]  ->
+                IF $ Set (decodeRegister . extractRegister $ expandedCode)
+                     (fromBitsLE $ extractSImm8 expandedCode)
+          | opcode == [f, f, f, t, f, f]   ->
+                IF $ Store (decodeRegister . extractRegister $ expandedCode)
+                      (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, f, f, t, f, t]   ->
+                IA $ Add (decodeRegister . extractRegister $ expandedCode)
+                    (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, f, f, t, t, f]   ->
+                IF $ Jump (fromBitsLE $ extractSImm8Jump expandedCode)
+          | opcode == [f, f, f, t, t, t]    ->
+                IS $ JumpZero (fromBitsLE $ extractSImm8Jump expandedCode)
+          | opcode == [f, f, t, f, f, f]   ->
+                IA $ Sub (decodeRegister . extractRegister $ expandedCode)
+                    (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, f, t, f, f, t]   ->
+                IA $ Mul (decodeRegister . extractRegister $ expandedCode)
+                    (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, f, t, f, t, f]   ->
+                IA $ Div (decodeRegister . extractRegister $ expandedCode)
+                    (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, f, t, f, t, t]   ->
+                IA $ Mod (decodeRegister . extractRegister $ expandedCode)
+                    (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, f, t, t, f, f]   ->
+                IA $ Abs (decodeRegister . extractRegister $ expandedCode)
+      where f = False
+            t = True
 
 decodeRegister :: [Bool] -> Register
 decodeRegister = \case

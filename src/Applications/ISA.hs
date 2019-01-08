@@ -37,9 +37,9 @@ data MachineKey a where
     -- -- ^ flag
     IC   :: MachineKey MachineValue
     -- -- ^ instruction counter
-    IR   :: MachineKey (Instruction Functor)
+    IR   :: MachineKey Instruction
     -- ^ instruction register
-    Prog :: InstructionAddress -> MachineKey (Instruction Functor)
+    Prog :: InstructionAddress -> MachineKey Instruction
     -- ^ program memory address
 
 instance Show (MachineKey a) where
@@ -54,45 +54,36 @@ instance Show (MachineKey a) where
 instance Key MachineKey where
     showKey = show
 
--- :: Value (MachineKey a) -> a
--- (MV v) = v
+semantics :: [Instruction] -> FS Selective MachineKey ()
+semantics program read write =
+    sequenceA_ $ map (\i -> instructionSemantics i read write) program
 
--- deriving instance Eq a   => Eq (Value (MachineKey a))
--- deriving instance Ord a   => Ord (Value (MachineKey a))
--- deriving instance Show a => Show (Value (MachineKey a))
--- deriving instance Bounded a => Bounded (Value (MachineKey a))
--- Can't properly use DerivignVia here, even though I am very tempted to
--- deriving via a instance Num a => Num (Value (MachineKey a))
--- instance Num a => Num (Value (MachineKey a)) where
---     (MV x) + (MV y) = MV (x + y)
---     (MV x) * (MV y) = MV (x * y)
---     abs (MV v) = MV (Prelude.abs v)
---     signum (MV v) = MV (signum v)
---     fromInteger = error "fromInteger can't be defined for Num (Value (MachineKey a))"
---     negate (MV v) = MV (negate v)
-
--- instance Enum a => Enum (Value (MachineKey a)) where
--- instance Real a => Real (Value (MachineKey a)) where
--- instance Integral a => Integral (Value (MachineKey a)) where
-
--- semantics :: [Instruction Applicative] -> FS Applicative ()
--- semantics program read write =
---     sequenceA_ $ map (\i -> instructionSemantics i read write) program
-
-instructionSemantics :: Instruction c -> FS c MachineKey ()
+instructionSemantics :: Instruction -> FS Selective MachineKey ()
 instructionSemantics i read write = case i of
+    IF i -> semanticsFunctor i read write
+    IA i -> semanticsApplicative i read write
+    IS i -> semanticsSelective i read write
+
+semanticsFunctor :: InstructionFunctor -> FS Functor MachineKey ()
+semanticsFunctor i read write = case i of
     Halt -> haltF read write
     Load reg addr -> load reg addr read write
-    LoadMI reg addr -> loadMI reg addr read write
     Set reg simm8  -> setF reg simm8 read write
     Store reg addr -> store reg addr read write
+    Jump simm8     -> jump simm8 read write
+
+semanticsApplicative :: InstructionApplicative -> FS Applicative MachineKey ()
+semanticsApplicative i read write = case i of
     Add reg addr   -> add reg addr read write
     Sub reg addr   -> sub reg addr read write
     Mul reg addr   -> mul reg addr read write
     Div reg addr   -> div reg addr read write
     Mod reg addr   -> mod reg addr read write
     Abs reg        -> abs reg read write
-    Jump simm8     -> jump simm8 read write
+
+semanticsSelective :: InstructionSelective -> FS Selective MachineKey ()
+semanticsSelective i read write = case i of
+    LoadMI reg addr -> loadMI reg addr read write
     JumpZero simm8 -> jumpZero simm8 read write
 
 -- | Halt the execution.
@@ -203,37 +194,13 @@ jumpZero simm read write = void $
 type Monad m = (Selective m, Prelude.Monad m)
 
 -- -- --------------------------------------------------------------------------------
--- -- executeInstruction :: (Monad f) => _
--- --     -- (MachineKey a -> f (Value (MachineKey a))) ->
--- --     -- (MachineKey b -> f b -> f b) ->
--- --     -- f a
--- -- executeInstruction = \read write -> do
--- --     -- fetch instruction
--- --     -- ic <- read IC
--- --     -- write IR (read (Prog ic))
--- --     -- increment instruction counter
--- --     -- write IC (pure $ ic + 1)
--- --     -- read instruction register and execute the instruction
--- --     i <- read IR
--- --     instructionSemantics i read write
-
 executeInstruction :: FS Monad MachineKey ()
 executeInstruction = \read write -> do
     -- fetch instruction
     ic <- read IC
-    -- write IR (read (Prog ic))
+    write IR (read (Prog ic))
     -- increment instruction counter
     write IC (pure $ ic + 1)
     -- read instruction register and execute the instruction
     i <- read IR
     instructionSemantics i read write
-
--- -- executeInstruction :: FS Selective ()
--- -- executeInstruction = \read write ->
--- --     -- fetch instruction
--- --     read IC `bindS` \ic ->
--- --     write IR (read (Prog ic)) *>
--- --     -- increment instruction counter
--- --     write IC (pure $ ic + 1) *>
--- --     -- read instruction register and execute the instruction
--- --     read IR `bindS` \i -> semantics i read write
