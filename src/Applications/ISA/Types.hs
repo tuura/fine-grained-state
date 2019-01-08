@@ -21,7 +21,7 @@ module Applications.ISA.Types (
     Register (..), RegisterBank,
 
     -- * Memory
-    MemoryAddress, Memory,
+    MemoryAddress, Memory, toMemoryAddress,
 
     -- * Flags
     Flag (..), Flags, FlagId, flagId,
@@ -81,3 +81,6 @@ fromBitsLE = go 0 0
 
 blastLE :: FiniteBits a => a -> [Bool]
 blastLE x = map (testBit x) [0 .. finiteBitSize x - 1]
+
+toMemoryAddress :: MachineValue -> MemoryAddress
+toMemoryAddress = id

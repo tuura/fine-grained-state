@@ -3,7 +3,9 @@
              FlexibleInstances,
              TypeFamilies #-}
 
-module FS (Key(..), FS, dependencies) where
+module FS (Key(..), FS
+    -- , dependencies
+) where
 
 import Prelude hiding (Read)
 import Control.Selective hiding (dependencies)
@@ -16,7 +18,7 @@ import qualified Data.Set as Set
 -- | A type class for keys, equipped with an associated type family that
 -- can be used to determine the type of value corresponding to the key.
 class Key k where
-    type Value k :: *
+    data Value k :: *
     -- | The name of the key. Useful for avoiding heterogeneous lists of keys.
     showKey :: k -> String
 
@@ -39,7 +41,7 @@ class Key k where
 --                                             (k -> f (Value k) -> f (Value k)) ->
 --                                             Maybe (f a)
 
-type Read f a = forall k. Key k => k -> f (Value k)
+type Read f a  = forall k. Key k => k -> f (Value k)
 
 type Write f a = forall k. Key k => k -> f (Value k) -> f (Value k)
 

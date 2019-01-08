@@ -6,6 +6,7 @@
              TypeFamilies,
              GADTs,
              StandaloneDeriving,
+             DerivingVia,
              MultiWayIf,
              LambdaCase,
              ApplicativeDo #-}
@@ -41,10 +42,6 @@ data MachineKey a where
     Prog :: InstructionAddress -> MachineKey (Instruction Functor)
     -- ^ program memory address
 
-instance Key (MachineKey a) where
-    type Value (MachineKey a) = a
-    showKey = show
-
 instance Show (MachineKey a) where
     show key = case key of
         Reg reg -> show reg
@@ -53,6 +50,31 @@ instance Show (MachineKey a) where
         IC  -> "IC"
         IR  -> "IR"
         Prog addr -> "Prog " ++ show addr
+
+instance Key (MachineKey a) where
+    data Value (MachineKey a) = MV a
+    showKey = show
+
+unwrapMV :: Value (MachineKey a) -> a
+unwrapMV (MV v) = v
+
+deriving instance Eq a   => Eq (Value (MachineKey a))
+deriving instance Ord a   => Ord (Value (MachineKey a))
+deriving instance Show a => Show (Value (MachineKey a))
+deriving instance Bounded a => Bounded (Value (MachineKey a))
+-- Can't properly use DerivignVia here, even though I am very tempted to
+-- deriving via a instance Num a => Num (Value (MachineKey a))
+instance Num a => Num (Value (MachineKey a)) where
+    (MV x) + (MV y) = MV (x + y)
+    (MV x) * (MV y) = MV (x * y)
+    abs (MV v) = MV (Prelude.abs v)
+    signum (MV v) = MV (signum v)
+    fromInteger = error "fromInteger can't be defined for Num (Value (MachineKey a))"
+    negate (MV v) = MV (negate v)
+
+instance Enum a => Enum (Value (MachineKey a)) where
+instance Real a => Real (Value (MachineKey a)) where
+instance Integral a => Integral (Value (MachineKey a)) where
 
 semantics :: [Instruction Applicative] -> FS Applicative ()
 semantics program read write =
@@ -78,13 +100,14 @@ instructionSemantics i read write = case i of
 --   Functor.
 haltF :: FS Functor ()
 haltF read write = void $
-    write (F Halted) ((const True) <$> read (F Halted))
+    -- read (F Halted)
+    write (F Halted) ((const (MV True)) <$> read (F Halted))
 
 -- | Halt the execution.
 --   Applicative.
 haltA :: FS Applicative ()
 haltA read write = void $ do
-    write (F Halted) (pure True)
+    write (F Halted) (pure (MV True))
 
 -- | Load a value from a memory location to a register.
 --   Functor.
@@ -98,14 +121,14 @@ load reg addr read write = void $
 setF :: Register -> SImm8
      -> FS Functor ()
 setF reg simm read write = void $
-    write (Reg reg) ((const . fromIntegral $ simm) <$> (read (Reg reg)))
+    write (Reg reg) ((const . MV . fromIntegral $ simm) <$> (read (Reg reg)))
 
--- -- | Set a register value.
--- --   Applicative.
--- setA :: Register -> SImm8
---                        -> FS Applicative a ()
--- setA reg simm read write = Just $
---     write (Reg reg) (pure . fromIntegral $ simm)
+-- -- -- | Set a register value.
+-- -- --   Applicative.
+-- -- setA :: Register -> SImm8
+-- --                        -> FS Applicative a ()
+-- -- setA reg simm read write = Just $
+-- --     write (Reg reg) (pure . fromIntegral $ simm)
 
 -- | Store a value from a register to a memory location.
 --   Functor.
@@ -119,33 +142,33 @@ add :: Register -> MemoryAddress
     -> FS Applicative ()
 add reg addr = \read write -> void $
     let result = (+) <$> (read (Reg reg)) <*> read (Addr addr)
-    in write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in write (F Zero) (MV . (== 0) <$> write (Reg reg) result)
 
 -- | Sub a value from memory location to one in a register.
 --   Applicative.
 sub :: Register -> MemoryAddress -> FS Applicative ()
 sub reg addr = \read write -> void $
     let result = (-) <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (MV . (== 0) <$> write (Reg reg) result)
 
 -- | Multiply a value from memory location to one in a register.
 --   Applicative.
 mul :: Register -> MemoryAddress -> FS Applicative ()
 mul reg addr = \read write -> void $
     let result = (*) <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (MV . (== 0) <$> write (Reg reg) result)
 
 -- | Subtract a value from memory location to one in a register.
 --   Applicative.
 div :: Register -> MemoryAddress -> FS Applicative ()
 div reg addr = \read write -> void $
     let result = Prelude.div <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (MV . (== 0) <$> write (Reg reg) result)
 
 mod :: Register -> MemoryAddress -> FS Applicative ()
 mod reg addr = \read write -> void $
     let result = Prelude.mod <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (MV . (== 0) <$> write (Reg reg) result)
 
 abs :: Register -> FS Functor ()
 abs reg = \read write -> void $
@@ -161,15 +184,16 @@ jump simm read write = void $
 -- | Indirect memory access.
 --   Monadic.
 loadMI :: Register -> MemoryAddress -> FS Selective ()
-loadMI reg addr read write = void $ do
+loadMI reg addr read write =
+    void $ do
     read (Addr addr) `bindS` \addr' ->
-        write (Reg reg) (read (Addr addr'))
+        write (Reg reg) (read (Addr (unwrapMV addr')))
 
 -- | Jump if 'Zero' flag is set.
 --   Selective.
 jumpZero :: SImm8 -> FS Selective ()
 jumpZero simm read write = void $
-    ifS (read (F Zero))
+    ifS (unwrapMV <$> read (F Zero))
         (write IC ((fromIntegral simm +) <$> read IC))
         (write IC (read IC))
 
@@ -180,22 +204,30 @@ jumpZero simm read write = void $
 type Monad m = (Selective m, Prelude.Monad m)
 
 -- --------------------------------------------------------------------------------
+-- executeInstruction :: (Monad f) => _
+--     -- (MachineKey a -> f (Value (MachineKey a))) ->
+--     -- (MachineKey b -> f b -> f b) ->
+--     -- f a
+-- executeInstruction = \read write -> do
+--     -- fetch instruction
+--     -- ic <- read IC
+--     -- write IR (read (Prog ic))
+--     -- increment instruction counter
+--     -- write IC (pure $ ic + 1)
+--     -- read instruction register and execute the instruction
+--     i <- read IR
+--     instructionSemantics i read write
+
 executeInstruction :: FS Monad ()
 executeInstruction = \read write -> do
     -- fetch instruction
     ic <- read IC
-    write IR (read (Prog ic))
+    -- write IR (read (Prog ic))
     -- increment instruction counter
     write IC (pure $ ic + 1)
     -- read instruction register and execute the instruction
-    i <- read IR
+    i <- unwrapMV <$> read IR
     instructionSemantics i read write
-
--- readIO :: MachineKey a -> IO a
--- readIO k = do putStr (show k ++ ": "); read <$> getLine
-
--- writeIO :: (Show k, Read v) => k -> IO v -> IO v
--- writeIO k v = undefined
 
 -- executeInstruction :: FS Selective ()
 -- executeInstruction = \read write ->

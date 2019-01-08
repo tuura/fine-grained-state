@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, GADTs #-}
+{-# LANGUAGE LambdaCase, GADTs, TypeFamilies, RankNTypes #-}
 
 module Applications.ISA.Simulator (
     -- * State of IAM machine
@@ -15,6 +15,7 @@ module Applications.ISA.Simulator (
     ) where
 
 import Control.Monad.State
+import Prelude hiding (Monad)
 import qualified Data.Map.Strict as Map
 import FS
 import Applications.ISA.Types
@@ -59,13 +60,13 @@ boot prog mem = MachineState { registers = emptyRegisters
 
 --------------------------------------------------------------------------------
 
-runModel :: Int -> MachineState -> MachineState
-runModel steps state
-    | steps <= 0 = state
-    | otherwise  = if halted then state else runModel (steps - 1) nextState
-  where
-    halted    = (Map.!) (flags state) Halted
-    nextState = snd $ runState (executeInstruction readKey writeKey) state
+-- runModel :: Int -> MachineState -> MachineState
+-- runModel steps state
+--     | steps <= 0 = state
+--     | otherwise  = if halted then state else runModel (steps - 1) nextState
+--   where
+--     halted    = (Map.!) (flags state) Halted
+--     nextState = snd $ runState (executeInstruction readKey writeKey) state
 
 -- runModel :: Int -> MachineState -> MachineState
 -- runModel steps state
@@ -75,10 +76,15 @@ runModel steps state
 --     halted    = (Map.!) (flags state) Halted
 --     nextState = snd $ runState (add R0 0 readKey _) state
 
+
+
+ns :: MachineState -> FS Applications.ISA.Monad () -> MachineState
+ns state computation = snd $ runState (computation readKey writeKey) state
+
 -- | Instance of the Machine.Metalanguage read command for simulation
 readKey :: MachineKey a
         -> State MachineState (Value (MachineKey a))
-readKey = \case
+readKey key = MV <$> case key of
     Reg  reg  -> readRegister reg
     Addr addr -> readMemory   addr
     F    flag -> readFlag     flag
@@ -90,15 +96,15 @@ readKey = \case
 writeKey :: MachineKey a
          -> State MachineState (Value (MachineKey a))
          -> State MachineState (Value (MachineKey a))
-writeKey k v = case k of
-    Reg  reg  -> v >>= writeRegister reg
-    Addr addr -> v >>= writeMemory   addr
-    F    flag -> v >>= writeFlag flag
+writeKey k v = MV <$> case k of
+    Reg  reg  -> v >>= writeRegister reg . unwrapMV
+    Addr addr -> v >>= writeMemory   addr . unwrapMV
+    F    flag -> v >>= writeFlag flag . unwrapMV
     IC        -> do
-        ic' <- (+ 1) <$> v
+        ic' <- (+ 1) . unwrapMV <$> v
         modify $ \currentState -> currentState {instructionCounter = ic'}
         pure ic'
-    IR        -> v >>= writeInstructionRegister
+    IR        -> v >>= writeInstructionRegister . unwrapMV
     Prog addr -> error "Machine.Semantics.Symbolic: Can't write Program"
 
 --------------------------------------------------------------------------------
