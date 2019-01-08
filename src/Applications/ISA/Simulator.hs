@@ -11,7 +11,7 @@ module Applications.ISA.Simulator (
     dumpMemory,
 
     -- * Simulate the machine execution
-    -- runModel
+    runModel
     ) where
 
 import Control.Monad.State
@@ -19,6 +19,7 @@ import qualified Data.Map.Strict as Map
 import FS
 import Applications.ISA.Types
 import Applications.ISA.Instruction
+import Applications.ISA.Instruction.Encode
 import Applications.ISA.Program hiding (readProgram)
 import Applications.ISA
 
@@ -26,7 +27,7 @@ import Applications.ISA
 data MachineState = MachineState
     { registers           :: RegisterBank
     , instructionCounter  :: InstructionAddress
-    , instructionRegister :: Instruction Functor
+    , instructionRegister :: InstructionCode
     , flags               :: Flags
     , memory              :: Memory
     , program             :: Program
@@ -50,7 +51,7 @@ dumpMemory from to m = map ((Map.!) m) [from..to]
 boot :: Program -> Memory -> MachineState
 boot prog mem = MachineState { registers = emptyRegisters
                              , instructionCounter = 0
-                             , instructionRegister = Jump 0
+                             , instructionRegister = encode (IF $ Jump 0)
                              , program = prog
                              , flags = emptyFlags
                              , memory = mem
@@ -67,35 +68,27 @@ runModel steps state
     halted    = (Map.!) (flags state) Halted
     nextState = snd $ runState (executeInstruction readKey writeKey) state
 
--- runModel :: Int -> MachineState -> MachineState
--- runModel steps state
---     | steps <= 0 = state
---     | otherwise  = if halted then state else runModel (steps - 1) nextState
---   where
---     halted    = (Map.!) (flags state) Halted
---     nextState = snd $ runState (add R0 0 readKey _) state
-
 -- | Instance of the Machine.Metalanguage read command for simulation
-readKey :: MachineKey a
-        -> State MachineState (Value (MachineKey a))
+readKey :: MachineKey
+        -> State MachineState MachineValue
 readKey = \case
     Reg  reg  -> readRegister reg
     Addr addr -> readMemory   addr
-    F    flag -> readFlag     flag
+    F    flag -> boolToMachineValue <$> readFlag flag
     IC        -> instructionCounter <$> get
     IR        -> readInstructionRegister
     Prog addr -> readProgram addr
 
 -- | Instance of the Machine.Metalanguage write command for simulation
-writeKey :: MachineKey a
-         -> State MachineState (Value (MachineKey a))
-         -> State MachineState (Value (MachineKey a))
+writeKey :: MachineKey
+         -> State MachineState MachineValue
+         -> State MachineState MachineValue
 writeKey k v = case k of
     Reg  reg  -> v >>= writeRegister reg
     Addr addr -> v >>= writeMemory   addr
     F    flag -> v >>= writeFlag flag
     IC        -> do
-        ic' <- (+ 1) <$> v
+        ic' <- v
         modify $ \currentState -> currentState {instructionCounter = ic'}
         pure ic'
     IR        -> v >>= writeInstructionRegister
@@ -176,12 +169,12 @@ readFlag flag = do
 -- | Set a given 'Flag' to the specified Boolean value.
 --   We assume that it takes 1 clock cycle to access
 --   the flag register in hardware.
-writeFlag :: Flag -> Bool -> State MachineState Bool
+writeFlag :: Flag -> MachineValue -> State MachineState MachineValue
 writeFlag flag value = do
     delay 1
     modify $ \currentState ->
         currentState {
-            flags = Map.adjust (const value) flag (flags currentState)}
+            flags = Map.adjust (const (machineValueToBool value)) flag (flags currentState)}
     pure value
 
 --------------------------------------------------------------------------------
@@ -197,17 +190,17 @@ fetchInstruction :: State MachineState ()
 fetchInstruction =
     get >>= readProgram . instructionCounter >>= writeInstructionRegister >> pure ()
 
-readProgram :: InstructionAddress -> State MachineState (Instruction Functor)
+readProgram :: InstructionAddress -> State MachineState InstructionCode
 readProgram addr = do
     currentState <- get
     delay 1
     pure . snd $ (!!) (program currentState) (fromIntegral addr)
 
-readInstructionRegister :: State MachineState (Instruction Functor)
+readInstructionRegister :: State MachineState InstructionCode
 readInstructionRegister = instructionRegister <$> get
 
-writeInstructionRegister :: Instruction Functor
-                         -> State MachineState (Instruction Functor)
+writeInstructionRegister :: InstructionCode
+                         -> State MachineState InstructionCode
 writeInstructionRegister instruction = do
     modify $ \currentState ->
         currentState {instructionRegister = instruction}

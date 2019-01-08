@@ -12,7 +12,7 @@
 --------------------------------------------------------------------------------
 module Applications.ISA.Types (
     -- * Types of values operated by the IAM instruction set
-    MachineValue,
+    MachineValue, boolToMachineValue, machineValueToBool,
 
     -- * Signed immediate arguments
     SImm8,
@@ -41,6 +41,14 @@ import Data.Bits
 -- | The 'MachineValue' datatype represents data values. The precise
 -- bit-width is left unspecified, but it is assumed that it fits into 64 bits.
 type MachineValue = Int16
+
+boolToMachineValue :: Bool -> MachineValue
+boolToMachineValue True  = 1
+boolToMachineValue False = 0
+
+machineValueToBool :: MachineValue -> Bool
+machineValueToBool 0 = False
+machineValueToBool _ = True
 
 type SImm8 = Int8
 

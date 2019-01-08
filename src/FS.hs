@@ -3,7 +3,9 @@
              FlexibleInstances,
              TypeFamilies #-}
 
-module FS (Key(..), FS, dependencies) where
+module FS (FS
+, dependencies
+) where
 
 import Prelude hiding (Read)
 import Control.Selective hiding (dependencies)
@@ -12,13 +14,6 @@ import Data.Functor.Const
 import Algebra.Graph
 import Algebra.Graph.Export.Dot
 import qualified Data.Set as Set
-
--- | A type class for keys, equipped with an associated type family that
--- can be used to determine the type of value corresponding to the key.
-class Key k where
-    type Value k :: *
-    -- | The name of the key. Useful for avoiding heterogeneous lists of keys.
-    showKey :: k -> String
 
 -- | The 'FS' data type is a polymorphic state-transformer metalanguage
 --   for describing the semantics of programming languages.
@@ -35,45 +30,19 @@ class Key k where
 --   for the usage of constructions like 'write key2 (read key1)' without restriction
 --   the type constructor 'f' to be an instance of 'Applicative' (to gain a way of
 --   enclosing pure values in 'f'.)
--- type FS c k a = forall f k. (c f, Key k) => (k -> f (Value k)) ->
---                                             (k -> f (Value k) -> f (Value k)) ->
---                                             Maybe (f a)
+type Read f k v a = k -> f v
 
-type Read f a = forall k. Key k => k -> f (Value k)
+type Write f k v a = k -> f v -> f v
 
-type Write f a = forall k. Key k => k -> f (Value k) -> f (Value k)
-
-type FS c a = forall f. c f => Read f a -> Write f a -> f a
+type FS c k v a = forall f. c f => Read f k v a -> Write f k v a -> f a
 
 -- | Calculate data dependencies of a semantic computation
 --   The computation must have only static dependencies, hence the
---   'Applicative' constraint. In case of presence of non-static dependecies
---   'Nothing' is returned.
--- dependencies :: FS Selective a -> ([String], [String])
--- dependencies task =
---     partitionEithers . getConst $
---     task trackingRead trackingWrite
---   where trackingRead  k    = Const [Left (showKey k)]
---         trackingWrite k fv = fv *> Const [Right (showKey k)]
-
-dependencies :: FS Selective a -> ([String], [String])
+--   'Selective' constraint.
+dependencies :: FS Selective k v a -> ([k], [k])
 dependencies task =
     partitionEithers . getConst $
     task trackingRead trackingWrite
-
-trackingRead  k    = Const [Left (showKey k)]
-
-trackingWrite k fv = fv *> Const [Right (showKey k)]
-
--- graph :: Ord k => (k -> ([k], [k])) -> k -> Graph k
--- graph deps key = transpose $ overlays [ star k (deps k) | k <- keys Set.empty [key] ]
---   where
---     keys seen []   = Set.toList seen
---     keys seen (x:xs)
---         | x `Set.member` seen = keys seen xs
---         | otherwise           = keys (Set.insert x seen) (deps x ++ xs)
-
--- draw :: FS Selective v -> String -> String
--- draw computation = exportAsIs . graph deps
---   where
---     deps k = maybe ([], []) dependencies $ computation k
+    where
+        trackingRead  k    = Const [Left k]
+        trackingWrite k fv = fv *> Const [Right k]
