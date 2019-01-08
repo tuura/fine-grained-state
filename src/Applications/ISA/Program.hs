@@ -4,6 +4,7 @@ module Applications.ISA.Program where -- (
 --     parseProgram, readProgram
 --     ) where
 
+import Control.Selective
 import Applications.ISA.Types
 import Applications.ISA.Instruction
 -- import Applications.ISA.Instruction.Encode
@@ -16,14 +17,14 @@ type Program = [(InstructionAddress, Instruction Functor)]
 -- readProgram :: FilePath -> IO Program
 -- readProgram = (fmap parseProgram) . readFile
 
--- | Quick-and-dirty program parser.
+-- -- | Quick-and-dirty program parser.
 
---   Comments start with the '#' character.
+-- --   Comments start with the '#' character.
 
 -- --   Blank lines are ignored.
 -- parseProgram :: String -> Program
 -- parseProgram src =
---     let instructions :: [Instruction Unconstrained]
+--     let instructions :: [Instruction]
 --         instructions = map read . removeBlankLines . removeComments . lines $ src
 --     in addInstructionAddresses . map encode $ instructions
 --     where removeComments = map (takeWhile (/= '#'))
@@ -31,6 +32,6 @@ type Program = [(InstructionAddress, Instruction Functor)]
 --           addInstructionAddresses = zip [0..]
 
 -- showProgram :: Program -> String
--- showProgram prog = let is :: [Instruction Unconstrained]
+-- showProgram prog = let is :: [Instruction]
 --                        is = map decode . map snd $ prog
 --                    in unlines . map show $ is
