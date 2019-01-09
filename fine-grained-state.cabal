@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b39f4ff5748dd001e1eef778fd618ac08998ecb1fcda4ef2b907990d16ed8f96
+-- hash: 0d71b9ff3ce90dfed74daed1a7f4732928ee9b49be9ad410f92919a9c54126f0
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -27,7 +27,11 @@ source-repository head
 library
   exposed-modules:
       Applications.ISA
+      Applications.ISA.Examples.Common
+      Applications.ISA.Examples.CommonConstraint
       Applications.ISA.Instruction
+      Applications.ISA.Instruction.Decode
+      Applications.ISA.Instruction.Encode
       Applications.ISA.Program
       Applications.ISA.Simulator
       Applications.ISA.Types

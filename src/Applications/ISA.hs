@@ -54,36 +54,44 @@ instance Show (MachineKey a) where
 instance Key MachineKey where
     showKey = show
 
-semantics :: [Instruction] -> FS Selective MachineKey ()
-semantics program read write =
-    sequenceA_ $ map (\i -> instructionSemantics i read write) program
+semantics :: [InstructionImpl Applicative] -> FS Applicative MachineKey ()
+semantics instrs read write =
+    sequenceA_ $ map (\i -> instructionSemantics i read write) instrs
 
-instructionSemantics :: Instruction -> FS Selective MachineKey ()
+semantics' :: [Instruction] -> FS Selective MachineKey ()
+semantics' instrs read write =
+    sequenceA_ $ map (\i -> instructionSemantics' i read write) instrs
+
+instructionSemantics :: InstructionImpl c -> FS c MachineKey ()
 instructionSemantics i read write = case i of
-    IF i -> semanticsFunctor i read write
-    IA i -> semanticsApplicative i read write
-    IS i -> semanticsSelective i read write
-
-semanticsFunctor :: InstructionFunctor -> FS Functor MachineKey ()
-semanticsFunctor i read write = case i of
     Halt -> haltF read write
     Load reg addr -> load reg addr read write
+    LoadMI reg addr -> loadMI reg addr read write
     Set reg simm8  -> setF reg simm8 read write
     Store reg addr -> store reg addr read write
-    Jump simm8     -> jump simm8 read write
-
-semanticsApplicative :: InstructionApplicative -> FS Applicative MachineKey ()
-semanticsApplicative i read write = case i of
     Add reg addr   -> add reg addr read write
     Sub reg addr   -> sub reg addr read write
     Mul reg addr   -> mul reg addr read write
     Div reg addr   -> div reg addr read write
     Mod reg addr   -> mod reg addr read write
     Abs reg        -> abs reg read write
+    Jump simm8     -> jump simm8 read write
+    JumpZero simm8 -> jumpZero simm8 read write
 
-semanticsSelective :: InstructionSelective -> FS Selective MachineKey ()
-semanticsSelective i read write = case i of
+instructionSemantics' :: Instruction -> FS Selective MachineKey ()
+instructionSemantics' (Instruction i) read write = case i of
+    Halt -> haltF read write
+    Load reg addr -> load reg addr read write
     LoadMI reg addr -> loadMI reg addr read write
+    Set reg simm8  -> setF reg simm8 read write
+    Store reg addr -> store reg addr read write
+    Add reg addr   -> add reg addr read write
+    Sub reg addr   -> sub reg addr read write
+    Mul reg addr   -> mul reg addr read write
+    Div reg addr   -> div reg addr read write
+    Mod reg addr   -> mod reg addr read write
+    Abs reg        -> abs reg read write
+    Jump simm8     -> jump simm8 read write
     JumpZero simm8 -> jumpZero simm8 read write
 
 -- | Halt the execution.
@@ -187,13 +195,13 @@ jumpZero simm read write = void $
         (write IC ((fromIntegral simm +) <$> read IC))
         (write IC (read IC))
 
--- --------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 -- | We amend the standard 'Monad' constraint to include 'Selective' into
 --   the hierarchy
 type Monad m = (Selective m, Prelude.Monad m)
 
--- -- --------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 executeInstruction :: FS Monad MachineKey ()
 executeInstruction = \read write -> do
     -- fetch instruction
@@ -203,4 +211,4 @@ executeInstruction = \read write -> do
     write IC (pure $ ic + 1)
     -- read instruction register and execute the instruction
     i <- read IR
-    instructionSemantics i read write
+    instructionSemantics' i read write

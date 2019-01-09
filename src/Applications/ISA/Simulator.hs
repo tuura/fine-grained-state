@@ -51,7 +51,7 @@ dumpMemory from to m = map ((Map.!) m) [from..to]
 boot :: Program -> Memory -> MachineState
 boot prog mem = MachineState { registers = emptyRegisters
                              , instructionCounter = 0
-                             , instructionRegister = IF $ Jump 0
+                             , instructionRegister = Instruction $ Jump 0
                              , program = prog
                              , flags = emptyFlags
                              , memory = mem

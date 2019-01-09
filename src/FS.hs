@@ -4,7 +4,7 @@
              TypeFamilies #-}
 
 module FS (Key(..), FS
-    -- , dependencies
+    , dependencies
 ) where
 
 import Prelude hiding (Read)
