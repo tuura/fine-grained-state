@@ -3,17 +3,21 @@
              FlexibleInstances,
              TypeFamilies #-}
 
-module FS (Key(..), FS
-    , dependencies
+module FS (Monad, Key(..), FS, dependencies
 ) where
 
-import Prelude hiding (Read)
+import Prelude hiding (Read, Monad)
+import qualified Prelude (Monad)
 import Control.Selective hiding (dependencies)
 import Data.Either (partitionEithers)
 import Data.Functor.Const
 import Algebra.Graph
 import Algebra.Graph.Export.Dot
 import qualified Data.Set as Set
+
+-- | We amend the standard 'Monad' constraint to include 'Selective' into
+--   the hierarchy
+type Monad m = (Selective m, Prelude.Monad m)
 
 -- | A type class for keys, equipped with an associated type family that
 -- can be used to determine the type of value corresponding to the key.

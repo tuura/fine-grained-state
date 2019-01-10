@@ -42,6 +42,9 @@ data MachineKey a where
     Prog :: InstructionAddress -> MachineKey Instruction
     -- ^ program memory address
 
+deriving instance Eq a  => Eq (MachineKey a)
+deriving instance Ord a => Ord (MachineKey a)
+
 instance Show (MachineKey a) where
     show key = case key of
         Reg reg -> show reg
@@ -194,13 +197,6 @@ jumpZero simm read write = void $
     ifS (read (F Zero))
         (write IC ((fromIntegral simm +) <$> read IC))
         (write IC (read IC))
-
---------------------------------------------------------------------------------
-
--- | We amend the standard 'Monad' constraint to include 'Selective' into
---   the hierarchy
-type Monad m = (Selective m, Prelude.Monad m)
-
 --------------------------------------------------------------------------------
 executeInstruction :: FS Monad MachineKey ()
 executeInstruction = \read write -> do

@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0d71b9ff3ce90dfed74daed1a7f4732928ee9b49be9ad410f92919a9c54126f0
+-- hash: 25d489daad0205099608e475b774915bbee4885c60cd9ec6f682b3f27ae8fb18
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -26,15 +26,15 @@ source-repository head
 
 library
   exposed-modules:
+      Applications.BuildSystems
       Applications.ISA
       Applications.ISA.Examples.Common
-      Applications.ISA.Examples.CommonConstraint
+      Applications.ISA.Graph
       Applications.ISA.Instruction
-      Applications.ISA.Instruction.Decode
-      Applications.ISA.Instruction.Encode
       Applications.ISA.Program
       Applications.ISA.Simulator
       Applications.ISA.Types
+      Applications.Parser
       FS
   other-modules:
       Paths_fine_grained_state

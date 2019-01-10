@@ -5,7 +5,8 @@
              KindSignatures,
              LambdaCase,
              TypeFamilies,
-             StandaloneDeriving #-}
+             StandaloneDeriving,
+             ScopedTypeVariables #-}
 
 module Applications.ISA.Instruction where
 
@@ -33,10 +34,13 @@ data InstructionImpl c where
   JumpZero :: SImm8 -> InstructionImpl Selective
   LoadMI :: Register -> MemoryAddress -> InstructionImpl Selective
 
+deriving instance Eq  (InstructionImpl c)
+deriving instance Ord (InstructionImpl c)
+
 instance Show (InstructionImpl c) where
   show = \case
-    Halt          -> "Halt"
-    Load  reg addr -> "Load " ++ show reg ++ " " ++ show addr
+    Halt            -> "Halt"
+    Load  reg addr  -> "Load " ++ show reg ++ " " ++ show addr
     Set   reg value -> "Set " ++ show reg ++ " " ++ show value
     Store reg addr  -> "Store " ++ show reg ++ " " ++ show addr
     Add   reg addr  -> "Add " ++ show reg ++ " " ++ show addr
@@ -51,7 +55,11 @@ instance Show (InstructionImpl c) where
 
 data Instruction = forall c. Instruction (InstructionImpl c)
 
-deriving instance Show Instruction
+-- instance Eq Instruction where
+--   Instruction (i1 :: InstructionImpl c)  == Instruction (i2 :: InstructionImpl c) = i1 == i2
+
+instance Show Instruction where
+  show (Instruction i) = show i
 
 -- | Programs are stored in program memory.
 type InstructionAddress = MachineValue

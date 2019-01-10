@@ -11,6 +11,7 @@ import Applications.ISA.Program
 import Applications.ISA
 import Applications.ISA.Simulator
 import FS
+import Applications.ISA.Graph
 
 --------------------------------------------------------------------------------
 addProgram :: Program
