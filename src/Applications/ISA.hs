@@ -192,11 +192,14 @@ loadMI reg addr read write =
 
 -- | Jump if 'Zero' flag is set.
 --   Selective.
-jumpZero :: SImm8 -> FS Selective MachineKey ()
-jumpZero simm read write = void $
+jumpZero :: SImm8
+         -> FS Selective MachineKey ()
+jumpZero simm = \read write ->
+    -- whenS (read (F Zero))
+    --       (void $ write IC ((fromIntegral simm +) <$> read IC))
     ifS (read (F Zero))
-        (write IC ((fromIntegral simm +) <$> read IC))
-        (write IC (read IC))
+        (void $ write IC ((fromIntegral simm +) <$> read IC))
+        (pure ())
 --------------------------------------------------------------------------------
 executeInstruction :: FS Monad MachineKey ()
 executeInstruction = \read write -> do
