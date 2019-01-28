@@ -25,6 +25,7 @@ dependencies:
 - mtl
 - selective
 - algebraic-graphs
+- pretty-simple
 
 library:
   source-dirs: src
