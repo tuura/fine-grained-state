@@ -20,9 +20,9 @@ class Unconstrained (a :: * -> *)
 instance Unconstrained a
 
 data InstructionImpl c where
-  Halt   :: InstructionImpl Functor
+  Halt   :: InstructionImpl Applicative
   Load   :: Register -> MemoryAddress -> InstructionImpl Functor
-  Set    :: Register -> SImm8 -> InstructionImpl Functor
+  Set    :: Register -> SImm8 -> InstructionImpl Applicative
   Store  :: Register -> MemoryAddress -> InstructionImpl Functor
   Add    :: Register -> MemoryAddress -> InstructionImpl Applicative
   Sub    :: Register -> MemoryAddress -> InstructionImpl Applicative
@@ -54,9 +54,6 @@ instance Show (InstructionImpl c) where
     LoadMI reg addr -> "LoadMI " ++ show reg ++ " " ++ show addr
 
 data Instruction = forall c. Instruction (InstructionImpl c)
-
--- instance Eq Instruction where
---   Instruction (i1 :: InstructionImpl c)  == Instruction (i2 :: InstructionImpl c) = i1 == i2
 
 instance Show Instruction where
   show (Instruction i) = show i

@@ -67,10 +67,10 @@ semantics' instrs read write =
 
 instructionSemantics :: InstructionImpl c -> FS c MachineKey ()
 instructionSemantics i read write = case i of
-    Halt -> haltF read write
+    Halt -> halt read write
     Load reg addr -> load reg addr read write
     LoadMI reg addr -> loadMI reg addr read write
-    Set reg simm8  -> setF reg simm8 read write
+    Set reg simm8  -> set reg simm8 read write
     Store reg addr -> store reg addr read write
     Add reg addr   -> add reg addr read write
     Sub reg addr   -> sub reg addr read write
@@ -83,10 +83,10 @@ instructionSemantics i read write = case i of
 
 instructionSemantics' :: Instruction -> FS Selective MachineKey ()
 instructionSemantics' (Instruction i) read write = case i of
-    Halt -> haltF read write
+    Halt -> halt read write
     Load reg addr -> load reg addr read write
     LoadMI reg addr -> loadMI reg addr read write
-    Set reg simm8  -> setF reg simm8 read write
+    Set reg simm8  -> set reg simm8 read write
     Store reg addr -> store reg addr read write
     Add reg addr   -> add reg addr read write
     Sub reg addr   -> sub reg addr read write
@@ -98,17 +98,10 @@ instructionSemantics' (Instruction i) read write = case i of
     JumpZero simm8 -> jumpZero simm8 read write
 
 -- | Halt the execution.
---   Functor.
-haltF :: FS Functor MachineKey ()
-haltF read write = void $
-    -- read (F Halted)
-    write (F Halted) ((const True) <$> read (F Halted))
-
--- -- | Halt the execution.
--- --   Applicative.
--- haltA :: FS Applicative ()
--- haltA read write = void $ do
---     write (F Halted) (pure (MV True))
+--   Applicative.
+halt :: FS Applicative MachineKey ()
+halt read write = void $ do
+    write (F Halted) (pure True)
 
 -- | Load a value from a memory location to a register.
 --   Functor.
@@ -118,18 +111,11 @@ load reg addr read write = void $
     write (Reg reg) (read (Addr addr))
 
 -- | Set a register value.
---   Functor.
-setF :: Register -> SImm8
-     -> FS Functor MachineKey ()
-setF reg simm read write = void $
-    write (Reg reg) ((const . fromIntegral $ simm) <$> (read (Reg reg)))
-
--- -- -- | Set a register value.
--- -- --   Applicative.
--- -- setA :: Register -> SImm8
--- --                        -> FS Applicative a ()
--- -- setA reg simm read write = Just $
--- --     write (Reg reg) (pure . fromIntegral $ simm)
+--   Applicative.
+set :: Register -> SImm8
+    -> FS Applicative MachineKey ()
+set reg simm read write = void $
+    write (Reg reg) (pure . fromIntegral $ simm)
 
 -- | Store a value from a register to a memory location.
 --   Functor.
