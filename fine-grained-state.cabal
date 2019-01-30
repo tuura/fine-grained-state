@@ -2,16 +2,16 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 25d489daad0205099608e475b774915bbee4885c60cd9ec6f682b3f27ae8fb18
+-- hash: 5d28d25242f6a57cff505904994464255c87db2d19c98359cb868fdcf18802ba
 
 name:           fine-grained-state
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/fine-grained-state#readme>
-homepage:       https://github.com/githubuser/fine-grained-state#readme
-bug-reports:    https://github.com/githubuser/fine-grained-state/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2019 Author name here
+description:    Please see the README on GitHub at <https://github.com/tuura/fine-grained-state#readme>
+homepage:       https://github.com/tuura/fine-grained-state#readme
+bug-reports:    https://github.com/tuura/fine-grained-state/issues
+author:         Georgy Lukyanov
+maintainer:     mail@geo2a.info
+copyright:      2019 Georgy Lukyanov
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -22,61 +22,16 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/fine-grained-state
+  location: https://github.com/tuura/fine-grained-state
 
 library
   exposed-modules:
-      Applications.BuildSystems
-      Applications.ISA
-      Applications.ISA.Examples.Common
-      Applications.ISA.Graph
-      Applications.ISA.Instruction
-      Applications.ISA.Program
-      Applications.ISA.Simulator
-      Applications.ISA.Types
-      Applications.Parser
       FS
   other-modules:
       Paths_fine_grained_state
   hs-source-dirs:
       src
   build-depends:
-      algebraic-graphs
-    , base >=4.7 && <5
-    , containers
-    , mtl
-    , selective
-  default-language: Haskell2010
-
-executable fine-grained-state-exe
-  main-is: Main.hs
-  other-modules:
-      Paths_fine_grained_state
-  hs-source-dirs:
-      app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -fwarn-incomplete-patterns
-  build-depends:
-      algebraic-graphs
-    , base >=4.7 && <5
-    , containers
-    , fine-grained-state
-    , mtl
-    , selective
-  default-language: Haskell2010
-
-test-suite fine-grained-state-test
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  other-modules:
-      Paths_fine_grained_state
-  hs-source-dirs:
-      test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      algebraic-graphs
-    , base >=4.7 && <5
-    , containers
-    , fine-grained-state
-    , mtl
+      base >=4.7 && <5
     , selective
   default-language: Haskell2010
