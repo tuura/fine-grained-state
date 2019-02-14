@@ -4,7 +4,7 @@ An experimental approach for representing stateful computations in Haskell, whic
 is polymorphic in both the effect-encapsulating type constructor `f` and the
 constraint `c` imposed on `f`.
 
-```
+```haskell
 type Read  k f = forall a. k a -> f a
 
 type Write k f = forall a. k a -> f a -> f a
