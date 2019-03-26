@@ -25,6 +25,7 @@ dependencies:
 - mtl
 - selective
 - algebraic-graphs
+- sbv
 
 library:
   source-dirs: src

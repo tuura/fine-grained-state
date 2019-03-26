@@ -1,9 +1,11 @@
 {-# LANGUAGE ConstraintKinds,
              RankNTypes,
              FlexibleInstances,
-             TypeFamilies #-}
+             TypeFamilies,
+             GADTs, DataKinds
+              #-}
 
-module FS (Monad, Key(..), FS, dependencies
+module FS (Monad, Key(..), Read, Write, FS, dependencies, Semantics
 ) where
 
 import Prelude hiding (Read, Monad)
@@ -85,3 +87,8 @@ trackingWrite k fv = fv *> Const [Right (showKey k)]
 -- draw computation = exportAsIs . graph deps
 --   where
 --     deps k = maybe ([], []) dependencies $ computation k
+
+--------------------------------------------------------------------------------
+type Semantics c k v a = forall f. c f => (k -> f v) ->
+                                          (k -> f v -> f ()) ->
+                                          Maybe (f a)

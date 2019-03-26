@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8f95d44b5e73653c68933ffc9334c971e95a277dfefd829ce0e33c712d489c1e
+-- hash: 4ac0c31c799f7588505310335a93c899905cafda660a87a662b1629c9b28531b
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -32,11 +32,17 @@ library
       Applications.ISA.Examples.Common
       Applications.ISA.Graph
       Applications.ISA.Instruction
+      Applications.ISA.Instruction.Decode
+      Applications.ISA.Instruction.Encode
       Applications.ISA.Program
       Applications.ISA.Simulator
+      Applications.ISA.Symbolic
+      Applications.ISA.Symbolic.SMT
+      Applications.ISA.Symbolic.Types
       Applications.ISA.Types
       Applications.ISAWeaken
       Applications.Parser
+      AST
       FS
   other-modules:
       Paths_fine_grained_state
@@ -47,6 +53,7 @@ library
     , base >=4.7 && <5
     , containers
     , mtl
+    , sbv
     , selective
   default-language: Haskell2010
 
@@ -63,6 +70,7 @@ executable fine-grained-state-exe
     , containers
     , fine-grained-state
     , mtl
+    , sbv
     , selective
   default-language: Haskell2010
 
@@ -80,5 +88,6 @@ test-suite fine-grained-state-test
     , containers
     , fine-grained-state
     , mtl
+    , sbv
     , selective
   default-language: Haskell2010

@@ -22,8 +22,6 @@ import Control.Selective hiding (dependencies)
 import Applications.ISA.Types
 import Applications.ISA.Instruction
 import FS
-import AST
-import Unsafe.Coerce
 
 -- | 'MachineKey' will instantiate the 'k' type variable in the 'Semantics'
 --   metalanguage.
@@ -70,7 +68,7 @@ semantics' instrs read write =
 
 instructionSemantics :: InstructionImpl c -> FS c MachineKey ()
 instructionSemantics i read write = case i of
-    Halt -> haltF read write
+    Halt -> halt read write
     Load reg addr -> load reg addr read write
     LoadMI reg addr -> loadMI reg addr read write
     Set reg simm8  -> setF reg simm8 read write
@@ -86,7 +84,7 @@ instructionSemantics i read write = case i of
 
 instructionSemantics' :: Instruction -> FS Selective MachineKey ()
 instructionSemantics' (Instruction i) read write = case i of
-    Halt -> haltF read write
+    Halt -> halt read write
     Load reg addr -> load reg addr read write
     LoadMI reg addr -> loadMI reg addr read write
     Set reg simm8  -> setF reg simm8 read write
@@ -102,137 +100,40 @@ instructionSemantics' (Instruction i) read write = case i of
 
 -- | Halt the execution.
 --   Functor.
-haltF :: FS Functor MachineKey ()
-haltF read write = void $
-    -- read (F Halted)
-    write (F Halted) ((const True) <$> read (F Halted))
-
-data UntypedKey where
-    UReg  :: Register -> UntypedKey
-    -- ^ register
-    UAddr :: MemoryAddress -> UntypedKey
-    -- ^ memory address
-    UF    :: Flag -> UntypedKey
-    -- ^ flag
-    UIC   :: UntypedKey
-    -- ^ instruction counter
-    UIR   :: UntypedKey
-    -- ^ instruction register
-    UProg :: InstructionAddress -> UntypedKey
-    -- ^ program memory address
-
-deriving instance Show UntypedKey
-
-data Sym = SConst MachineValue
-
-data SymEngine a = SymEngine
-    { runSymEngine :: Int -> [(a, Int)] }
-
-deriving instance Functor SymEngine
-
-instance Applicative SymEngine where
-    pure  = return
-    (<*>) = ap
-
-instance Prelude.Monad SymEngine where
-    return a       = SymEngine $ \s -> [(a, s)]
-    SymEngine r >>= f = SymEngine $ \s ->
-        let outcomes = r s
-        in concat $ map (\(result, state) -> runSymEngine (f result) state) outcomes
+-- haltF :: FS Functor MachineKey ()
+-- haltF read write = void $
+--     -- read (F Halted)
+--     write (F Halted) ((const True) <$> read (F Halted))
 
 
-readKeySym :: MachineKey a -> SymEngine Sym
-readKeySym key = case key of
-    Reg  reg  -> pure (SConst 1)
-    Addr addr -> pure (SConst 1)
-    F    flag -> pure (SConst 1)
-    IC        -> pure (SConst 1)
-    IR        -> pure (SConst 1)
-    Prog addr -> pure (SConst 1)
+-- coerceKey :: UntypedKey -> MachineKey a
+-- coerceKey (UReg r) = unsafeCoerce $ Reg r
+-- coerceKey (UAddr addr) = unsafeCoerce $ Addr addr
+-- coerceKey (UF f) = unsafeCoerce $ F f
+-- coerceKey UIC = unsafeCoerce $ IC
+-- coerceKey (UProg iaddr) = unsafeCoerce $ Prog iaddr
 
-writeKeySym :: MachineKey a -> SymEngine Sym -> SymEngine Sym
-writeKeySym key fv = case key of
-    Reg  reg  -> pure (SConst 1)
-    Addr addr -> pure (SConst 1)
-    F    flag -> pure (SConst 1)
-    IC        -> pure (SConst 1)
-    IR        -> pure (SConst 1)
-    Prog addr -> pure (SConst 1)
+-- newtype ReadWrap k f = ReadWrap {unReadWrap :: Read k f}
 
--- loadSym :: Register -> MemoryAddress -> SymEngine ()
--- loadSym reg addr = load reg addr readKeySym writeKeySym
+-- newtype WriteWrap k f = WriteWrap {unWriteWrap :: Write k f}
 
-readKeyAST :: MachineKey a -> AST UntypedKey a
-readKeyAST key = case key of
-    Reg  reg  -> Read (UReg reg)
-    Addr addr -> Read (UAddr addr)
-    F    flag -> Read (UF flag)
-    IC        -> Read UIC
-    IR        -> Read UIR
-    Prog addr -> Read (UProg addr)
+-- weakenRead :: ReadWrap MachineKey f -> (UntypedKey -> f Sym)
+-- weakenRead (ReadWrap read) = read . coerceKey
 
-writeKeyAST :: MachineKey a -> AST UntypedKey v -> AST UntypedKey v
-writeKeyAST key fv = case key of
-    Reg  reg  -> Write (UReg reg) fv
-    Addr addr -> Write (UAddr addr) fv
-    F    flag -> Write (UF flag) fv
-    IC        -> Write UIC fv
-    IR        -> Write UIR fv
-    Prog addr -> Write (UProg addr) fv
+-- weakenWrite :: WriteWrap MachineKey f
+--             -> (UntypedKey -> f Sym -> f Sym)
+-- weakenWrite (WriteWrap write) = write . coerceKey
 
-semanticsAST :: FS Applicative MachineKey a -> AST UntypedKey a
-semanticsAST comp = comp readKeyAST writeKeyAST
+-- | Halt the execution.
+--   Applicative.
+halt :: FS Applicative MachineKey ()
+halt read write = void $ do
+    write (F Halted) (pure True)
 
-readKeySym1 :: UntypedKey -> SymEngine Sym
-readKeySym1 = undefined
-
-writeKeySym1 :: UntypedKey -> SymEngine Sym -> SymEngine Sym
-writeKeySym1 = undefined
-
-execASTSym ::AST UntypedKey Sym -> SymEngine Sym
-execASTSym (Read  k)    = readKeySym1  k
-execASTSym (Write k fv) = writeKeySym1 k (execASTSym fv)
-execASTSym (Fmap f x)   = fmap f (unsafeCoerce $ execASTSym . unsafeCoerce $ x)
-execASTSym (Pure x)     = pure x
-execASTSym (Ap ff x)    = execASTSym $
-    ff `Bind` \ff' ->
-        x `Bind` \x' ->
-            Pure (ff' x')
--- execASTSym (Select ff x) = execASTSym ff <*? (execASTSym x)
-execASTSym (Bind x ff)   =
-    execASTSym (unsafeCoerce x) >>= \y -> execASTSym (ff (unsafeCoerce y))
-
-weakLoad :: Register -> MemoryAddress -> AST UntypedKey MachineValue
-weakLoad reg addr = load' reg addr readKeyAST writeKeyAST
-
-coerceKey :: UntypedKey -> MachineKey a
-coerceKey (UReg r) = unsafeCoerce $ Reg r
-coerceKey (UAddr addr) = unsafeCoerce $ Addr addr
-coerceKey (UF f) = unsafeCoerce $ F f
-coerceKey UIC = unsafeCoerce $ IC
-coerceKey (UProg iaddr) = unsafeCoerce $ Prog iaddr
-
-newtype ReadWrap k f = ReadWrap {unReadWrap :: Read k f}
-
-newtype WriteWrap k f = WriteWrap {unWriteWrap :: Write k f}
-
-weakenRead :: ReadWrap MachineKey f -> (UntypedKey -> f Sym)
-weakenRead (ReadWrap read) = read . coerceKey
-
-weakenWrite :: WriteWrap MachineKey f
-            -> (UntypedKey -> f Sym -> f Sym)
-weakenWrite (WriteWrap write) = write . coerceKey
-
--- -- | Halt the execution.
--- --   Applicative.
--- haltA :: FS Applicative ()
--- haltA read write = void $ do
---     write (F Halted) (pure (MV True))
-
-load' :: Register -> MemoryAddress
-     -> FS Functor MachineKey MachineValue
-load' reg addr read write =
-    write (Reg reg) (read (Addr addr))
+-- load' :: Register -> MemoryAddress
+--      -> FS Functor MachineKey MachineValue
+-- load' reg addr read write =
+--     write (Reg reg) (read (Addr addr))
 
 -- | Load a value from a memory location to a register.
 --   Functor.
@@ -268,6 +169,12 @@ add :: Register -> MemoryAddress
 add reg addr = \read write -> void $
     let result = (+) <$> (read (Reg reg)) <*> read (Addr addr)
     in write (F Zero) ((== 0) <$> write (Reg reg) result)
+
+-- add :: Register -> MemoryAddress
+--     -> FS Applicative MachineKey ()
+-- add reg addr = \read write -> void $
+--     let result = (+) <$> (read (Reg reg)) <*> read (Addr addr)
+--     in write (Reg reg) result
 
 -- | Sub a value from memory location to one in a register.
 --   Applicative.

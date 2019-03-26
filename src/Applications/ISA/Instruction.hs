@@ -20,7 +20,7 @@ class Unconstrained (a :: * -> *)
 instance Unconstrained a
 
 data InstructionImpl c where
-  Halt   :: InstructionImpl Functor
+  Halt   :: InstructionImpl Applicative
   Load   :: Register -> MemoryAddress -> InstructionImpl Functor
   Set    :: Register -> SImm8 -> InstructionImpl Functor
   Store  :: Register -> MemoryAddress -> InstructionImpl Functor

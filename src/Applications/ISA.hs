@@ -104,6 +104,8 @@ haltF read write = void $
     -- read (F Halted)
     write (F Halted) ((const True) <$> read (F Halted))
 
+
+
 -- -- | Halt the execution.
 -- --   Applicative.
 -- haltA :: FS Applicative ()
