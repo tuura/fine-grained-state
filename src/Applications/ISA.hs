@@ -33,7 +33,7 @@ data MachineKey a where
     -- ^ register
     Addr :: MemoryAddress -> MachineKey MachineValue
     -- ^ memory address
-    F    :: Flag -> MachineKey Bool
+    F    :: Flag -> MachineKey MachineValue
     -- -- ^ flag
     IC   :: MachineKey MachineValue
     -- -- ^ instruction counter
@@ -67,7 +67,7 @@ semantics' instrs read write =
 
 instructionSemantics :: InstructionImpl c -> FS c MachineKey ()
 instructionSemantics i read write = case i of
-    Halt -> haltF read write
+    Halt -> halt read write
     Load reg addr -> load reg addr read write
     LoadMI reg addr -> loadMI reg addr read write
     Set reg simm8  -> setF reg simm8 read write
@@ -83,7 +83,7 @@ instructionSemantics i read write = case i of
 
 instructionSemantics' :: Instruction -> FS Selective MachineKey ()
 instructionSemantics' (Instruction i) read write = case i of
-    Halt -> haltF read write
+    Halt -> halt read write
     Load reg addr -> load reg addr read write
     LoadMI reg addr -> loadMI reg addr read write
     Set reg simm8  -> setF reg simm8 read write
@@ -99,18 +99,16 @@ instructionSemantics' (Instruction i) read write = case i of
 
 -- | Halt the execution.
 --   Functor.
-haltF :: FS Functor MachineKey ()
-haltF read write = void $
-    -- read (F Halted)
-    write (F Halted) ((const True) <$> read (F Halted))
+-- haltF :: FS Functor MachineKey ()
+-- haltF read write = void $
+--     -- read (F Halted)
+--     write (F Halted) ((const 1) <$> read (F Halted))
 
-
-
--- -- | Halt the execution.
--- --   Applicative.
--- haltA :: FS Applicative ()
--- haltA read write = void $ do
---     write (F Halted) (pure (MV True))
+-- | Halt the execution.
+--   Applicative.
+halt :: FS Applicative ()
+halt read write = void $ do
+    write (F Halted) (pure 1)
 
 -- | Load a value from a memory location to a register.
 --   Functor.
@@ -145,33 +143,38 @@ add :: Register -> MemoryAddress
     -> FS Applicative MachineKey ()
 add reg addr = \read write -> void $
     let result = (+) <$> (read (Reg reg)) <*> read (Addr addr)
-    in write (F Zero) ((== 0) <$> write (Reg reg) result)
+    -- in write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in write (F Zero) (write (Reg reg) result)
 
 -- | Sub a value from memory location to one in a register.
 --   Applicative.
 sub :: Register -> MemoryAddress -> FS Applicative MachineKey ()
 sub reg addr = \read write -> void $
     let result = (-) <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    -- in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (write (Reg reg) result)
 
 -- | Multiply a value from memory location to one in a register.
 --   Applicative.
 mul :: Register -> MemoryAddress -> FS Applicative MachineKey ()
 mul reg addr = \read write -> void $
     let result = (*) <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    -- in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (write (Reg reg) result)
 
 -- | Subtract a value from memory location to one in a register.
 --   Applicative.
 div :: Register -> MemoryAddress -> FS Applicative MachineKey ()
 div reg addr = \read write -> void $
     let result = Prelude.div <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    -- in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (write (Reg reg) result)
 
 mod :: Register -> MemoryAddress -> FS Applicative MachineKey ()
 mod reg addr = \read write -> void $
     let result = Prelude.mod <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    -- in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (write (Reg reg) result)
 
 abs :: Register -> FS Functor MachineKey ()
 abs reg = \read write -> void $
@@ -199,7 +202,7 @@ jumpZero :: SImm8
 jumpZero simm = \read write ->
     -- whenS (read (F Zero))
     --       (void $ write IC ((fromIntegral simm +) <$> read IC))
-    ifS (read (F Zero))
+    ifS ((/=) <$> read (F Zero) <*> pure 0)
         (void $ write IC ((fromIntegral simm +) <$> read IC))
         (pure ())
 --------------------------------------------------------------------------------

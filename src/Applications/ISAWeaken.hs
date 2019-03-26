@@ -34,7 +34,7 @@ data MachineKey a where
     -- ^ register
     Addr :: MemoryAddress -> MachineKey MachineValue
     -- ^ memory address
-    F    :: Flag -> MachineKey Bool
+    F    :: Flag -> MachineKey MachineValue
     -- -- ^ flag
     IC   :: MachineKey MachineValue
     -- -- ^ instruction counter
@@ -128,7 +128,7 @@ instructionSemantics' (Instruction i) read write = case i of
 --   Applicative.
 halt :: FS Applicative MachineKey ()
 halt read write = void $ do
-    write (F Halted) (pure True)
+    write (F Halted) (pure 1)
 
 -- load' :: Register -> MemoryAddress
 --      -> FS Functor MachineKey MachineValue
@@ -167,40 +167,51 @@ store reg addr read write = void $
 add :: Register -> MemoryAddress
     -> FS Applicative MachineKey ()
 add reg addr = \read write -> void $
-    let result = (+) <$> (read (Reg reg)) <*> read (Addr addr)
-    in write (F Zero) ((== 0) <$> write (Reg reg) result)
+    let -- result = (+) <$> (read (Reg reg)) <*> read (Addr addr)
+        result = read (Reg reg)
+    -- in write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in write (F Zero) (write (Reg reg) result)
 
--- add :: Register -> MemoryAddress
---     -> FS Applicative MachineKey ()
--- add reg addr = \read write -> void $
---     let result = (+) <$> (read (Reg reg)) <*> read (Addr addr)
---     in write (Reg reg) result
+-- addM :: Register -> MemoryAddress
+--      -> FS Applicative MachineKey ()
+-- addM reg addr = \read write -> void $
+--     -- let -- result = (+) <$> (read (Reg reg)) <*> read (Addr addr)
+--     --     result = read (Reg reg)
+--     -- -- in write (F Zero) ((== 0) <$> write (Reg reg) result)
+--     -- in write (F Zero) (write (Reg reg) result)
+--     do x <- read (Reg reg)
+--        y <- read (Addr addr)
+--        write (Reg reg) (pure $ x + y)
 
 -- | Sub a value from memory location to one in a register.
 --   Applicative.
 sub :: Register -> MemoryAddress -> FS Applicative MachineKey ()
 sub reg addr = \read write -> void $
     let result = (-) <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    -- in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (write (Reg reg) result)
 
 -- | Multiply a value from memory location to one in a register.
 --   Applicative.
 mul :: Register -> MemoryAddress -> FS Applicative MachineKey ()
 mul reg addr = \read write -> void $
     let result = (*) <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    -- in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (write (Reg reg) result)
 
 -- | Subtract a value from memory location to one in a register.
 --   Applicative.
 div :: Register -> MemoryAddress -> FS Applicative MachineKey ()
 div reg addr = \read write -> void $
     let result = Prelude.div <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    -- in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (write (Reg reg) result)
 
 mod :: Register -> MemoryAddress -> FS Applicative MachineKey ()
 mod reg addr = \read write -> void $
     let result = Prelude.mod <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    -- in  write (F Zero) ((== 0) <$> write (Reg reg) result)
+    in  write (F Zero) (write (Reg reg) result)
 
 abs :: Register -> FS Functor MachineKey ()
 abs reg = \read write -> void $
@@ -228,7 +239,7 @@ jumpZero :: SImm8
 jumpZero simm = \read write ->
     -- whenS (read (F Zero))
     --       (void $ write IC ((fromIntegral simm +) <$> read IC))
-    ifS (read (F Zero))
+    ifS ((/=) <$> read (F Zero) <*> pure 0)
         (void $ write IC ((fromIntegral simm +) <$> read IC))
         (pure ())
 --------------------------------------------------------------------------------

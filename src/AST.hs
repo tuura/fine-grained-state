@@ -15,6 +15,7 @@ import Data.Functor.Const
 import Algebra.Graph
 import Algebra.Graph.Export.Dot
 import qualified Data.Set as Set
+import Data.Typeable
 
 data AST k v where
     Read   :: k -> AST k v

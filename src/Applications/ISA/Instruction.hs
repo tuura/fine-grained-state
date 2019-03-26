@@ -11,6 +11,8 @@
 module Applications.ISA.Instruction where
 
 import GHC.Exts (Constraint)
+import Prelude hiding (Monad)
+import qualified Prelude (Monad)
 import Data.Functor (void)
 import Control.Selective
 import FS
@@ -25,6 +27,7 @@ data InstructionImpl c where
   Set    :: Register -> SImm8 -> InstructionImpl Functor
   Store  :: Register -> MemoryAddress -> InstructionImpl Functor
   Add    :: Register -> MemoryAddress -> InstructionImpl Applicative
+  -- AddM   :: Register -> MemoryAddress -> InstructionImpl Monad
   Sub    :: Register -> MemoryAddress -> InstructionImpl Applicative
   Mul    :: Register -> MemoryAddress -> InstructionImpl Applicative
   Div    :: Register -> MemoryAddress -> InstructionImpl Applicative

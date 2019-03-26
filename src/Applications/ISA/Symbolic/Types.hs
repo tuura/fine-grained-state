@@ -13,6 +13,7 @@ import Applications.ISA.Instruction.Decode
 import Applications.ISA.Program hiding (readProgram)
 import Data.Word (Word8)
 import Data.Int (Int16)
+import Data.Typeable
 
 -- | Symbolic expressions
 data Sym = SAdd Sym Sym
@@ -29,7 +30,7 @@ data Sym = SAdd Sym Sym
          | SLt Sym Sym
          | SNot Sym
          | SIte Sym Sym Sym
-         deriving (Eq, Ord)
+         deriving (Eq, Ord, Typeable)
 
 mergeSym :: Sym -> Sym -> Sym -> Sym
 mergeSym condition onTrue onFalse =

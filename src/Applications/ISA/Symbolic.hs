@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase, GADTs, TypeFamilies
             , RankNTypes, MultiParamTypeClasses
-            , DeriveFunctor, StandaloneDeriving #-}
+            , DeriveFunctor, StandaloneDeriving, ScopedTypeVariables #-}
 
 module Applications.ISA.Symbolic (
     -- * State of IAM machine
@@ -33,6 +33,7 @@ import Applications.ISA.Symbolic.Types
 import Applications.ISA.Symbolic.SMT
 import AST
 import Unsafe.Coerce
+import Data.Typeable
 
 data UntypedKey where
     UReg  :: Register -> UntypedKey
@@ -49,6 +50,31 @@ data UntypedKey where
     -- ^ program memory address
 
 deriving instance Show UntypedKey
+
+-- | This function is the key to translating shallow embedded instruction semantics
+--   into the deep embedded symbolic execution-ready ones. Unfortunately, we need
+--   a deep embedding of Haskell functions we use (like Num typeclass) in order
+--   to perform the translation properly, but this does not seem to be feasible since
+--   why not just use this deep embedding as a surface fmanguage -- that would make things
+--  sooo much easier.
+symbolise :: Typeable a => AST UntypedKey a -> AST UntypedKey Sym
+symbolise = \case
+    Read k -> Read k
+    Write k fv -> Write k (symbolise fv)
+    -- Fmap f x -> unsafeCoerce $ Fmap f (unsafeCoerce $ symbolise x)
+    Pure x ->
+        case cast x of
+            Just (x :: MachineValue) -> Pure (SConst (unsafeCoerce x :: MachineValue))
+            Nothing -> error "symbolise: not a MachineValue"
+    -- Pure x -> Pure (SConst 1)
+    Ap ff x -> symbolise $
+        ff `Bind` \ff' ->
+            x `Bind` \x' ->
+                Pure (ff' x')
+-- -- execASTSym (Select ff x) = execASTSym ff <*? (execASTSym x)
+    Bind x ff ->
+        symbolise x >>= \y -> symbolise (ff (unsafeCoerce y))
+
 
 readKeyAST :: MachineKey a -> AST UntypedKey a
 readKeyAST key = case key of
@@ -68,42 +94,24 @@ writeKeyAST key fv = case key of
     IR        -> Write UIR fv
     Prog addr -> Write (UProg addr) fv
 
-semanticsAST' :: FS Selective MachineKey a -> AST UntypedKey a
-semanticsAST' comp = comp readKeyAST writeKeyAST
-
-semanticsAST :: FS Selective MachineKey a -> AST UntypedKey Sym
+semanticsAST :: Typeable a => FS Selective MachineKey a -> AST UntypedKey Sym
 semanticsAST comp = symbolise $ comp readKeyAST writeKeyAST
 
-symbolise :: AST UntypedKey a -> AST UntypedKeys Sym
-symbolise = \case
-    Read k -> Read k
-    Write k fv -> Write k (symbolise fv)
-    Fmap f x -> unsafeCoerce $ Fmap f (unsafeCoerce $ symbolise x)
-    -- Pure x -> Pure (SConst . unsafeCoerce $ x)
-    Pure x -> Pure (SConst 1)
-    Ap ff x -> symbolise $
-        ff `Bind` \ff' ->
-            x `Bind` \x' ->
-                Pure (ff' x')
+-- execASTSym :: AST UntypedKey Sym -> SymEngine Sym
+-- execASTSym (Read  k)    = readKey  k
+-- execASTSym (Write k fv) = writeKey k (execASTSym fv)
+-- execASTSym (Fmap f x)   = fmap f (unsafeCoerce $ execASTSym . unsafeCoerce $ x)
+-- execASTSym (Pure x)     = pure x
+-- execASTSym (Ap ff x)    = execASTSym $
+--     ff `Bind` \ff' ->
+--         x `Bind` \x' ->
+--             Pure (ff' x')
 -- -- execASTSym (Select ff x) = execASTSym ff <*? (execASTSym x)
-    Bind x ff ->
-        symbolise x >>= \y -> symbolise (ff (unsafeCoerce y))
+-- execASTSym (Bind x ff)   =
+--     execASTSym (unsafeCoerce x) >>= \y -> execASTSym (ff (unsafeCoerce y))
 
-execASTSym :: AST UntypedKey Sym -> SymEngine Sym
-execASTSym (Read  k)    = readKey  k
-execASTSym (Write k fv) = writeKey k (execASTSym fv)
-execASTSym (Fmap f x)   = fmap f (unsafeCoerce $ execASTSym . unsafeCoerce $ x)
-execASTSym (Pure x)     = pure x
-execASTSym (Ap ff x)    = execASTSym $
-    ff `Bind` \ff' ->
-        x `Bind` \x' ->
-            Pure (ff' x')
--- execASTSym (Select ff x) = execASTSym ff <*? (execASTSym x)
-execASTSym (Bind x ff)   =
-    execASTSym (unsafeCoerce x) >>= \y -> execASTSym (ff (unsafeCoerce y))
-
-symSemantics :: FS Selective MachineKey a -> SymEngine Sym
-symSemantics comp = execASTSym (semanticsAST comp)
+-- symSemantics :: FS Selective MachineKey a -> SymEngine Sym
+-- symSemantics comp = execASTSym (semanticsAST comp)
 
 --- | The Symbolic Execution Engine maintains the state of the machine and a list
 --   of path constraints.
@@ -185,27 +193,27 @@ writeKey k v = case k of
         _ -> error "Machine.Semantics.Symbolic.writeKey: symbolic IR is not supported"
     UProg _    -> error "Machine.Semantics.Symbolic: Can't write Program"
 
-symStep :: SymState -> [SymState]
-symStep state =
-    let [(instrCode, fetched)] = (flip runSymEngine) state $ do
-                                    fetchInstruction
-                                    incrementInstructionCounter
-                                    readInstructionRegister
-        i = decode instrCode
-    in -- (snd . ((flip runSymEngine) fetched)) <$>
-       case i of
-          (Instruction (JumpZero offset)) -> map snd $ runSymEngine (jumpZero offset) fetched
-          _ -> map snd $
-            runSymEngine (symSemantics $ instructionSemantics' i) fetched
+-- symStep :: SymState -> [SymState]
+-- symStep state =
+--     let [(instrCode, fetched)] = (flip runSymEngine) state $ do
+--                                     fetchInstruction
+--                                     incrementInstructionCounter
+--                                     readInstructionRegister
+--         i = decode instrCode
+--     in -- (snd . ((flip runSymEngine) fetched)) <$>
+--        case i of
+--           (Instruction (JumpZero offset)) -> map snd $ runSymEngine (jumpZero offset) fetched
+--           _ -> map snd $
+--             runSymEngine (symSemantics $ instructionSemantics' i) fetched
 
-runModel :: Int -> SymState -> Trace
-runModel steps state
-    | steps <= 0 = Tree.Node state []
-    | otherwise  = if halted then Tree.Node state [] else Tree.Node state children
-  where
-    halted    = (Map.!) (flags state) Halted /= (SConst 0)
-    newStates = symStep state
-    children  = runModel (steps - 1) <$> newStates
+-- runModel :: Int -> SymState -> Trace
+-- runModel steps state
+--     | steps <= 0 = Tree.Node state []
+--     | otherwise  = if halted then Tree.Node state [] else Tree.Node state children
+--   where
+--     halted    = (Map.!) (flags state) Halted /= (SConst 0)
+--     newStates = symStep state
+--     children  = runModel (steps - 1) <$> newStates
 -- --------------------------------------------------------------------------------
 -- ----------- The IAM microcommands in terms of SymEngine
 -- --------------------------------------------------------------------------------
@@ -365,31 +373,31 @@ jumpZero simm =
 assemble :: [Instruction] -> Program
 assemble = zip [0..] . map (\i -> encode i)
 
-addExampleSMT :: IO ()
-addExampleSMT = do
-    let prog = assemble $ [ Instruction $ Load R0 0
-                          , Instruction $ Add  R0 1
-                          , Instruction $ Halt
-                          ]
-        steps = 10
-        x = SConst 2 -- SAny 0
-        y = SConst 3 -- SAny 1
-        -- x = SAny 0
-        -- y = SAny 1
-        mem = initialiseMemory [(0, x), (1, y)]
-        initialState = boot prog mem
-        s = appendConstraints [ SLt x (SConst 10), SLt y (SConst 10)
-                              , SGt x (SConst 0), SGt y (SConst 0)
-                              ] initialState
-        trace = runModel steps s
-    s <- solveSym (overflow trace)
-    putStrLn $ Tree.drawTree $ fmap renderSolvedState s
+-- addExampleSMT :: IO ()
+-- addExampleSMT = do
+--     let prog = assemble $ [ Instruction $ Load R0 0
+--                           , Instruction $ Add  R0 1
+--                           , Instruction $ Halt
+--                           ]
+--         steps = 10
+--         -- x = SConst 2 -- SAny 0
+--         -- y = SConst 3 -- SAny 1
+--         x = SAny 0
+--         y = SAny 1
+--         mem = initialiseMemory [(0, x), (1, y)]
+--         initialState = boot prog mem
+--         -- s = appendConstraints [ SLt x (SConst 10), SLt y (SConst 10)
+--         --                       , SGt x (SConst 0), SGt y (SConst 0)
+--         --                       ] initialState
+--         trace = runModel steps initialState
+--     s <- solveSym (noZero trace)
+--     putStrLn $ Tree.drawTree $ fmap renderSolvedState s
 
-overflow :: Trace -> Trace
-overflow (Tree.Node state children) =
-    let cs = pathConstraintList state
-        state' = state {pathConstraintList = SNot (overflowNotSet state) : cs}
-    in Tree.Node state' (overflow <$> children)
+-- overflow :: Trace -> Trace
+-- overflow (Tree.Node state children) =
+--     let cs = pathConstraintList state
+--         state' = state {pathConstraintList = SNot (overflowNotSet state) : cs}
+--     in Tree.Node state' (overflow <$> children)
 
 -- noZero :: Trace -> Trace
 -- noZero (Tree.Node state children) =
@@ -400,8 +408,8 @@ overflow (Tree.Node state children) =
 -- zeroNotSet :: SymState -> Sym
 -- zeroNotSet s = (SEq ((Map.!) (flags s) Zero) (SConst 0))
 
-overflowNotSet :: SymState -> Sym
-overflowNotSet s = SEq ((Map.!) (flags s) Overflow) (SConst 0)
+-- overflowNotSet :: SymState -> Sym
+-- overflowNotSet s = SEq ((Map.!) (flags s) Overflow) (SConst 0)
 
 -- subExampleSMT :: IO ()
 -- subExampleSMT = do
