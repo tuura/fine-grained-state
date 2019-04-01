@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4ac0c31c799f7588505310335a93c899905cafda660a87a662b1629c9b28531b
+-- hash: 2d9672586bfa8613b49f16377840efe26a5844e0e5ec8d5d119faa5a59bb4249
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -44,6 +44,8 @@ library
       Applications.Parser
       AST
       FS
+      FSRecord
+      RecordOfFunctions
   other-modules:
       Paths_fine_grained_state
   hs-source-dirs:
