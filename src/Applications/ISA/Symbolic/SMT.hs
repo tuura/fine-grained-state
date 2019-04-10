@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTs, LambdaCase, ScopedTypeVariables #-}
+
 module Applications.ISA.Symbolic.SMT where
 
 import qualified Data.Map.Strict as Map
@@ -8,10 +10,51 @@ import Control.Monad.Reader (ask)
 import Control.Monad.Trans (liftIO)
 import qualified Data.SBV.Dynamic as SBV
 import Data.SBV (constrain, SBool, (.<))
+import Data.Bool (bool)
+import Data.Typeable
+
 
 import Applications.ISA.Types
 import Applications.ISA.Instruction.Decode
-import Applications.ISA.Symbolic.Types
+import qualified Applications.ISA.Symbolic.Types as Typed
+import Applications.ISA.Symbolic.Types (SymState(..), Trace)
+
+-- | Symbolic expressions
+data Sym = SAdd Sym Sym
+         | SSub Sym Sym
+         | SDiv Sym Sym
+         | SMod Sym Sym
+         | SAbs Sym
+         | SConst MachineValue
+         | SAnd Sym Sym
+         | SOr Sym Sym
+         | SAny Int     -- Any value or the set of all values
+         | SEq Sym Sym
+         | SGt Sym Sym
+         | SLt Sym Sym
+         | SNot Sym
+  deriving (Eq, Ord)
+
+eraseTypes :: Typeable a => Typed.Sym a -> Sym
+eraseTypes = \case
+    Typed.SConst x ->
+      case cast x of
+        Just (val :: Value) -> SConst val
+        Nothing  -> case cast x of
+                      Just (b :: Bool) -> SConst (bool 0 1 b)
+                      Nothing -> error "Type error in eraseTypes: unknown type in Typed.SConst"
+    Typed.SAny x   -> SAny x
+    Typed.SAdd x y -> SAdd (eraseTypes x) (eraseTypes y)
+    Typed.SSub x y -> SSub (eraseTypes x) (eraseTypes y)
+    Typed.SDiv x y -> SDiv (eraseTypes x) (eraseTypes y)
+    Typed.SMod x y -> SMod (eraseTypes x) (eraseTypes y)
+    Typed.SAbs x   -> SAbs (eraseTypes x)
+    Typed.SEq  x y -> SEq  (eraseTypes x) (eraseTypes y)
+    Typed.SGt  x y -> SGt  (eraseTypes x) (eraseTypes y)
+    Typed.SLt  x y -> SLt  (eraseTypes x) (eraseTypes y)
+    Typed.SAnd x y -> SAnd (eraseTypes x) (eraseTypes y)
+    Typed.SOr  x y -> SOr  (eraseTypes x) (eraseTypes y)
+    Typed.SNot x -> SNot (eraseTypes x)
 
 type SValMap = Map.Map Int (SBV.Symbolic SBV.SVal)
 
@@ -122,17 +165,17 @@ renderSMTResult s@(SBV.Satisfiable _ _) =
     if Map.null dict then "Trivial" else renderDict dict
 renderSMTResult _ = "Error"
 
-renderSolvedState :: SolvedState -> String
-renderSolvedState (SolvedState state c) =
-  "IC: " <> show (instructionCounter state) <> "\n" <>
-  "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
-  "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
---   "Stack: " <> show (renderSym <$> st) <> "\n" <>
-  "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
-  "Solved Values: " <> renderSMTResult c
+-- renderSolvedState :: SolvedState -> String
+-- renderSolvedState (SolvedState state c) =
+--   "IC: " <> show (instructionCounter state) <> "\n" <>
+--   "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
+--   "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
+-- --   "Stack: " <> show (renderSym <$> st) <> "\n" <>
+--   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
+--   "Solved Values: " <> renderSMTResult c
 
-renderPathConstraints :: [Sym] -> String
-renderPathConstraints xs = foldr (\x acc -> "  && " <> show x <> "\n" <> acc) "" xs
+-- renderPathConstraints :: [Sym] -> String
+-- renderPathConstraints xs = foldr (\x acc -> "  && " <> show x <> "\n" <> acc) "" xs
 
 renderDict :: (Show v) => Map.Map String v -> String
 renderDict m =
@@ -143,7 +186,7 @@ data SolvedState = SolvedState SymState SBV.SMTResult
 
 solveSym :: Trace -> IO (Tree.Tree SolvedState)
 solveSym (Tree.Node state c) = do
-    let smtExpr = toSMT (pathConstraintList state)
+    let smtExpr = toSMT . map eraseTypes $ pathConstraintList state
     SBV.SatResult smtRes <- SBV.satWith prover (smtExpr)
     children <- traverse solveSym c
     pure $ Tree.Node (SolvedState state smtRes) children

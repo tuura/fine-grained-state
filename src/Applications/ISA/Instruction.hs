@@ -33,7 +33,7 @@ data InstructionImpl c where
   Div    :: Register -> MemoryAddress -> InstructionImpl Applicative
   Mod    :: Register -> MemoryAddress -> InstructionImpl Applicative
   Abs    :: Register -> InstructionImpl Applicative
-  Jump :: SImm8 -> InstructionImpl Functor
+  Jump :: SImm8 -> InstructionImpl Applicative
   JumpZero :: SImm8 -> InstructionImpl Selective
   LoadMI :: Register -> MemoryAddress -> InstructionImpl Selective
 
@@ -65,7 +65,7 @@ instance Show Instruction where
   show (Instruction i) = show i
 
 -- | Programs are stored in program memory.
-type InstructionAddress = MachineValue
+type InstructionAddress = Value
 
 -- | Binary representation of an instruction
 type InstructionCode = MachineValue -- Word16
