@@ -1,0 +1,101 @@
+-- This file has been generated from package.yaml by hpack version 0.28.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 178b3e7092660c1124ae36e2e7444fd57bbc8600c517af6b116c7bd10ab3f920
+
+name:           iam-sym
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/iam-sym#readme>
+homepage:       https://github.com/geo2a/iam-sym#readme
+bug-reports:    https://github.com/geo2a/iam-sym/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2019 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+extra-source-files:
+    ChangeLog.md
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/geo2a/iam-sym
+
+library
+  exposed-modules:
+      Applications.ISA
+      Applications.ISA.Examples.Common
+      Applications.ISA.Graph
+      Applications.ISA.Instruction
+      Applications.ISA.Instruction.Decode
+      Applications.ISA.Instruction.Encode
+      Applications.ISA.Program
+      Applications.ISA.Simulator
+      Applications.ISA.Symbolic
+      Applications.ISA.Symbolic.SMT
+      Applications.ISA.Symbolic.Types
+      Applications.ISA.Types
+      Applications.ISAMinimal
+      Applications.ISAParam
+      Applications.ISAUntyped
+      Applications.ISAWeaken
+      Applications.Parser
+      AST
+      FS
+      FSRecord
+      Machine
+      RecordOfFunctions
+      Teletype
+  other-modules:
+      Paths_iam_sym
+  hs-source-dirs:
+      src
+  build-depends:
+      algebraic-graphs
+    , base >=4.7 && <5
+    , comonad
+    , containers
+    , mtl
+    , sbv
+    , selective
+  default-language: Haskell2010
+
+executable iam-sym-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_iam_sym
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -fwarn-incomplete-patterns
+  build-depends:
+      algebraic-graphs
+    , base >=4.7 && <5
+    , comonad
+    , containers
+    , iam-sym
+    , mtl
+    , sbv
+    , selective
+  default-language: Haskell2010
+
+test-suite iam-sym-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_iam_sym
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      algebraic-graphs
+    , base >=4.7 && <5
+    , comonad
+    , containers
+    , iam-sym
+    , mtl
+    , sbv
+    , selective
+  default-language: Haskell2010
