@@ -82,15 +82,16 @@ overflow (Tree.Node state children) =
 overflowNotSet :: SymState -> Sym Bool
 overflowNotSet s = SNot $ (Map.!) (flags s) Overflow
 
-isUnsatisfiable :: SBV.SMTResult -> Bool
-isUnsatisfiable = \case
-    (SBV.Unsatisfiable _ _) -> True
-    _ -> False
-
-queryTrace :: Tree.Tree SMT.SolvedState -> Bool -- [SymState]
-queryTrace =
-    all (\(SMT.SolvedState st smtres) -> isUnsatisfiable smtres)
-
+queryTrace :: Tree.Tree SMT.SolvedState -> [SMT.SolvedState]
+queryTrace tr =
+    let f x@(SMT.SolvedState st smtres) = if isUnsatisfiable smtres then [] else [x]
+    in foldMap f tr
+    -- all (\(SMT.SolvedState st smtres) -> isUnsatisfiable smtres)
+    where
+        isUnsatisfiable :: SBV.SMTResult -> Bool
+        isUnsatisfiable = \case
+            (SBV.Unsatisfiable _ _) -> True
+            _ -> False
 gcdExample :: IO ()
 gcdExample = do
     let steps = 15
@@ -100,14 +101,14 @@ gcdExample = do
         y = SAny 1
         mem = initialiseMemory [(0, x), (1, y)]
         initialState = boot gcdProgram mem
-        -- s = initialState
-        s = appendConstraints [ x `SGt` (SConst 20), x `SLt` (SConst 30)
-                              , y `SGt` (SConst 0), y `SLt` (SConst 10)
-                              ] initialState
+        s = initialState
+        -- s = appendConstraints [ x `SGt` (SConst 20), x `SLt` (SConst 30)
+        --                       , y `SGt` (SConst 0), y `SLt` (SConst 10)
+        --                       ] initialState
         trace = overflow $
                 runModel steps s
     -- print gcdProgram
     -- putStrLn $ Tree.drawTree $ fmap renderSymState $ trace
     s <- SMT.solveSym trace
     putStrLn $ Tree.drawTree $ fmap SMT.renderSolvedState s
-    print $ queryTrace s
+    putStrLn . unlines . fmap SMT.renderSolvedState $ queryTrace s
