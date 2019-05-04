@@ -131,3 +131,7 @@ instance Show a => Show (Sym a) where
 instance Eq a => Eq (Sym a) where
     (SConst x) == (SConst y) = x == y
     _ == _ = error "Sym.Eq: can't compare non-constant symbolic values"
+
+instance Bounded a => Bounded (Sym a) where
+  minBound = SConst minBound
+  maxBound = SConst maxBound
