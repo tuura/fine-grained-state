@@ -54,12 +54,28 @@ set reg simm read write = void $
 
 -- | Add a value from memory location to one in a register.
 --   Applicative.
+--
+--   It looks like we after all need a Monad here since Applicative theoretically permits reordering
+--   of effects. Here, it is important for the overflow check to happen before the addition, otherwise
+--   the check may be executed with the updated value of the register and will give an invalid result.
 add :: Register -> MemoryAddress
     -> FS Applicative ()
 add reg addr = \read write -> void $
-    let result = SAdd <$> read (Reg reg) <*> read (Addr addr)
-    in write (F Zero) ((SEq (SConst 0)) <$> write (Reg reg) result)
-
+    let arg1     = read (Reg reg)
+        arg2     = read (Addr addr)
+        result   = SAdd <$> arg1
+                        <*> arg2
+        overflow = willOverflow <$> arg1 <*> arg2
+    in write (F Overflow) overflow *>
+       write (F Zero) ((SEq (SConst 0)) <$> write (Reg reg) result)
+    where willOverflow :: Sym Value -> Sym Value -> Sym Bool
+          willOverflow x y =
+              let o1 = SGt y (SConst 0)
+                  o2 = SGt x (SSub maxBound y)
+                  o3 = SLt y (SConst 0)
+                  o4 = SLt x (SSub minBound y)
+              in  SOr (SAnd o1 o2)
+                      (SAnd o3 o4)
 -- | Load a value from a memory location to a register.
 --   Functor.
 load :: Register -> MemoryAddress
@@ -73,13 +89,28 @@ store :: Register -> MemoryAddress -> FS Functor ()
 store reg addr read write = void $
     write (Addr addr) (read (Reg reg))
 
+    -- let overflow = arg2 .> 0 &&& arg1 .< (minBound @Value + arg2) |||
+    --                arg2 .< 0 &&& arg1 .> (maxBound @Value + arg2)
+
 -- | Sub a value from memory location to one in a register.
 --   Applicative.
 sub :: Register -> MemoryAddress -> FS Applicative ()
 sub reg addr = \read write -> void $
-    let result = (SSub) <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((SEq (SConst 0)) <$> write (Reg reg) result)
-    -- in  write (F Zero) (write (Reg reg) result)
+    let arg1     = read (Reg reg)
+        arg2     = read (Addr addr)
+        result   = SSub <$> arg1
+                        <*> arg2
+        overflow = willOverflow <$> arg1 <*> arg2
+    in write (F Overflow) overflow *>
+       write (F Zero) ((SEq (SConst 0)) <$> write (Reg reg) result)
+    where willOverflow :: Sym Value -> Sym Value -> Sym Bool
+          willOverflow x y =
+              let o1 = SGt y (SConst 0)
+                  o2 = SLt x (SAdd minBound y)
+                  o3 = SLt y (SConst 0)
+                  o4 = SGt x (SAdd maxBound y)
+              in  SOr (SAnd o1 o2)
+                      (SAnd o3 o4)
 
 -- | Multiply a value from memory location to one in a register.
 --   Applicative.
@@ -99,9 +130,20 @@ div reg addr = \read write -> void $
 
 mod :: Register -> MemoryAddress -> FS Applicative ()
 mod reg addr = \read write -> void $
-    let result = SMod <$> read (Reg reg) <*> read (Addr addr)
-    in  write (F Zero) ((SEq (SConst 0)) <$> write (Reg reg) result)
-    -- in  write (F Zero) (write (Reg reg) result)
+    let arg1     = read (Reg reg)
+        arg2     = read (Addr addr)
+        result   = SMod <$> arg1
+                        <*> arg2
+        overflow = willOverflow <$> arg1 <*> arg2
+    in write (F Overflow) overflow *>
+       write (F Zero) ((SEq (SConst 0)) <$> write (Reg reg) result)
+    where willOverflow :: Sym Value -> Sym Value -> Sym Bool
+          willOverflow x y =
+              let o1 = SEq y (SConst 0)
+                  o2 = SEq x minBound
+                  o3 = SEq y (SConst (-1))
+              in  SOr o1
+                      (SAnd o2 o3)
 
 abs :: Register -> FS Functor ()
 abs reg = \read write -> void $

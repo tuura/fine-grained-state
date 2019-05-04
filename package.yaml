@@ -19,6 +19,8 @@ dependencies:
 - selective
 
 default-extensions:
+- TypeApplications
+- ScopedTypeVariables
 - DeriveFunctor
 - StandaloneDeriving
 - MultiParamTypeClasses

@@ -73,10 +73,10 @@ gcdProgram = zip [0..] $ map encode
 gcdExample :: IO ()
 gcdExample = do
     let steps = 15
-        x = SConst 2
-        y = SConst 3
-        -- x = SAny 0
-        -- y = SAny 1
+        -- x = SConst 2
+        -- y = SConst 3
+        x = SAny 0
+        y = SAny 1
         mem = initialiseMemory [(0, x), (1, y)]
         initialState = boot gcdProgram mem
         trace = runModel steps initialState
