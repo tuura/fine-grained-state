@@ -4,9 +4,12 @@ import System.IO.Unsafe (unsafePerformIO)
 import Control.Selective
 import Data.Foldable (sequenceA_)
 import qualified Data.Tree as Tree
+import qualified Data.SBV.Dynamic as SBV
 import Machine.Types
 import Machine.Semantics
 import Machine.Symbolic
+import qualified Machine.SMT as SMT
+import qualified Data.Map.Strict as Map
 import Machine.Encode
 
 ----------------------------------------------------------------------------------------------------
@@ -70,6 +73,24 @@ gcdProgram = zip [0..] $ map encode
     , Instruction Halt
     ]
 
+overflow :: Trace -> Trace
+overflow (Tree.Node state children) =
+    let cs = pathConstraintList state
+        state' = state {pathConstraintList = SNot (overflowNotSet state) : cs}
+    in Tree.Node state' (overflow <$> children)
+
+overflowNotSet :: SymState -> Sym Bool
+overflowNotSet s = SNot $ (Map.!) (flags s) Overflow
+
+isUnsatisfiable :: SBV.SMTResult -> Bool
+isUnsatisfiable = \case
+    (SBV.Unsatisfiable _ _) -> True
+    _ -> False
+
+queryTrace :: Tree.Tree SMT.SolvedState -> Bool -- [SymState]
+queryTrace =
+    all (\(SMT.SolvedState st smtres) -> isUnsatisfiable smtres)
+
 gcdExample :: IO ()
 gcdExample = do
     let steps = 15
@@ -79,6 +100,14 @@ gcdExample = do
         y = SAny 1
         mem = initialiseMemory [(0, x), (1, y)]
         initialState = boot gcdProgram mem
-        trace = runModel steps initialState
-    print gcdProgram
-    putStrLn $ Tree.drawTree $ fmap renderSymState $ trace
+        -- s = initialState
+        s = appendConstraints [ x `SGt` (SConst 20), x `SLt` (SConst 30)
+                              , y `SGt` (SConst 0), y `SLt` (SConst 10)
+                              ] initialState
+        trace = overflow $
+                runModel steps s
+    -- print gcdProgram
+    -- putStrLn $ Tree.drawTree $ fmap renderSymState $ trace
+    s <- SMT.solveSym trace
+    putStrLn $ Tree.drawTree $ fmap SMT.renderSolvedState s
+    print $ queryTrace s
