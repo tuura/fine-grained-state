@@ -14,7 +14,22 @@ description:         Please see the README on GitHub at <https://github.com/tuur
 
 dependencies:
 - base >= 4.7 && < 5
+- mtl
+- containers
 - selective
+
+default-extensions:
+- DeriveFunctor
+- StandaloneDeriving
+- MultiParamTypeClasses
+- KindSignatures
+- ConstraintKinds
+- FlexibleInstances
+- GADTs
+- RankNTypes
+- OverloadedStrings
+- LambdaCase
+- MultiWayIf
 
 library:
   source-dirs: src
