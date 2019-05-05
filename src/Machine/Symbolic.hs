@@ -18,14 +18,14 @@ import qualified Data.Tree as Tree
 
 -- | The state of symbolic computation
 data State = State { registers         :: Map.Map Register (Sym Value)
-                         , instructionCounter :: InstructionAddress -- Sym
-                         , instructionRegister :: InstructionCode
-                         , flags :: Map.Map Flag (Sym Bool)
-                         , memory :: Map.Map MemoryAddress (Sym Value)
-                         , program :: Program
-                         , clock :: Clock
-                         , pathConstraintList :: [Sym Bool]
-                         }
+                   , instructionCounter :: InstructionAddress -- Sym
+                   , instructionRegister :: InstructionCode
+                   , flags :: Map.Map Flag (Sym Bool)
+                   , memory :: Map.Map MemoryAddress (Sym Value)
+                   , program :: Program
+                   , clock :: Clock
+                   , pathConstraintList :: [Sym Bool]
+                   }
 
 renderState :: State -> String
 renderState state =
@@ -51,16 +51,14 @@ initialiseMemory vars =
 
 boot :: Program -> Map.Map MemoryAddress (Sym Value) -> State
 boot prog mem = State { registers = emptyRegisters
-                         , instructionCounter = 0
-                         , instructionRegister = encode . Instruction $ Jump 0
-                         , program = prog
-                         , flags = emptyFlags
-                         , memory = mem
-                         , clock = 0
-
-                         , pathConstraintList = []
-                         }
-
+                      , instructionCounter = 0
+                      , instructionRegister = encode . Instruction $ Jump 0
+                      , program = prog
+                      , flags = emptyFlags
+                      , memory = mem
+                      , clock = 0
+                      , pathConstraintList = []
+                      }
 
 -- | The symbolic execution trace
 type Trace = Tree.Tree State
@@ -117,18 +115,25 @@ jumpZeroSym simm =
     whenSym (readKey (F Zero))
             (void $ writeKey IC ((SAdd (SConst . fromIntegral $ simm)) <$> readKey IC))
 
+-- | Perform one step of symbolic execution
 symStep :: State -> [State]
 symStep state =
-    let [(instrCode, fetched)] = (flip runSymEngine) state $ do
-                                    fetchInstruction
-                                    incrementInstructionCounter
-                                    readInstructionRegister
-        i = decode instrCode
-    in -- (snd . ((flip runSymEngine) fetched)) <$>
-       case i of
-          (Instruction (JumpZero offset)) -> map snd $ runSymEngine (jumpZeroSym offset) fetched
-          _ -> map snd $
-            runSymEngine (instructionSemantics i readKey writeKey) fetched
+    let (instrCode, fetched) = pipeline state
+        instrSemantics =
+             case decode instrCode of
+                (Instruction (JumpZero offset)) -> jumpZeroSym offset
+                i                               -> instructionSemantics i readKey writeKey
+    in map snd $ runSymEngine instrSemantics fetched
+
+pipeline :: State -> (InstructionCode, State)
+pipeline state =
+    let steps = do fetchInstruction
+                   incrementInstructionCounter
+                   readInstructionRegister
+    in case runSymEngine steps state of
+            [result] -> result
+            _ -> error
+                "piplineStep: impossible happened: fetchInstruction returned not a singleton."
 
 -- | Retrieve all leaf-nodes of the symbolic expression
 unsafeLeafs :: Sym a -> [Sym a]
@@ -149,7 +154,7 @@ runModel steps state
     | steps <= 0 = Tree.Node state []
     | otherwise  = if halted then Tree.Node state [] else Tree.Node state children
   where
-    halted    = (Map.!) (flags state) Halted == (SConst True)
+    halted    = (Map.!) (flags state) Halted == SConst True
     newStates = symStep state
     children  = runModel (steps - 1) <$> newStates
 
@@ -162,7 +167,6 @@ readKey = \case
     IC        -> SConst . instructionCounter  <$> get
     IR        -> SConst . instructionRegister <$> get
     Prog addr -> SConst <$> snd <$> ((!!) <$> (program <$> get) <*> pure (fromIntegral addr))
-
 
 -- | Instance of the Machine.Metalanguage write command for symbolic execution
 writeKey :: Key a
