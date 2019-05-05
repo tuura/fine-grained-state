@@ -130,7 +130,12 @@ instance Show a => Show (Sym a) where
 
 instance Eq a => Eq (Sym a) where
     (SConst x) == (SConst y) = x == y
-    _ == _ = error "Sym.Eq: can't compare non-constant symbolic values"
+    (SAny   x) == (SAny y)   = x == y
+    _ == _ = error "Sym.Eq: can't compare non-trivial symbolic expressions symbolic values"
+
+instance Ord (Sym Value) where
+    (SAny l) <= (SAny r) = l <= r
+    _ <= _               = error "Sym.Ord: Sym is only ordered by ids of symbolic variables."
 
 instance Bounded a => Bounded (Sym a) where
   minBound = SConst minBound
