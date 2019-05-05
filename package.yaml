@@ -18,10 +18,14 @@ dependencies:
 - containers
 - selective
 - sbv
+- units
+- units-defs
 
 default-extensions:
 - TypeFamilies
 - TypeApplications
+- TypeOperators
+- DataKinds
 - ScopedTypeVariables
 - DerivingVia
 - DeriveFunctor

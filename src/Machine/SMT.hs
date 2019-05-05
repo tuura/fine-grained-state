@@ -8,7 +8,7 @@ import           Data.Monoid
 import           Control.Monad.Reader (ask)
 import           Control.Monad.Trans (liftIO)
 import           Data.Bool (bool)
-import           Data.Int (Int16)
+import           Data.Int (Int16, Int64)
 import           Machine.Decode
 import           Machine.Types
 import           Machine.Types.State
@@ -32,13 +32,13 @@ gatherFree (SLt l r)  = gatherFree l <> gatherFree r
 gatherFree (SConst _) = mempty
 
 -- | Create existential SVals for each of SAny's in the input.
-createSym :: [Sym Value] -> SBV.Symbolic (Map.Map Int SBV.SInt16)
+createSym :: [Sym Value] -> SBV.Symbolic (Map.Map Int SBV.SInt64)
 createSym cs = do
   pairs <- traverse createSymPair cs
   pure $ Map.fromList pairs
-    where createSymPair :: Sym Value -> SBV.Symbolic (Int, SBV.SInt16)
+    where createSymPair :: Sym Value -> SBV.Symbolic (Int, SBV.SInt64)
           createSymPair (SAny i) = do
-            v <- SBV.sInt16 (valName i)
+            v <- SBV.sInt64 (valName i)
             pure (i, v)
           createSymPair _ = error "Non-variable encountered."
 
@@ -53,12 +53,12 @@ toSMT cs = do
 
 -- | Translate type indices of the Sym GADT into SBV phantom types
 type family ToSBV a where
-    ToSBV Value = SBV.SBV Int16
+    ToSBV Value = SBV.SBV Int64
     ToSBV Bool  = SBV.SBV Bool
     ToSBV a     = SBV.SBV a
 
 -- | Translate symbolic values into the SBV representation
-symToSMT :: SBV.SymWord a => Map.Map Int SBV.SInt16 -> Sym a -> SBV.Symbolic (ToSBV a)
+symToSMT :: SBV.SymWord a => Map.Map Int SBV.SInt64 -> Sym a -> SBV.Symbolic (ToSBV a)
 symToSMT m (SEq l r) =
   (SBV..==) <$> symToSMT m l <*> symToSMT m r
 symToSMT m (SGt l r) =

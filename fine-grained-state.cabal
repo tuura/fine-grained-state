@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 25a199a352175465bc8b26c0b97c15bbf11a92fac2ba481f005cb67a3350f164
+-- hash: a91e287382b183cdd2748c7f5c3ea8f2a9cdd8dcf532e680b71bc5c12e9659b8
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -26,11 +26,13 @@ source-repository head
 
 library
   exposed-modules:
-      FS
       Machine
       Machine.Decode
       Machine.Encode
+      Machine.Examples.Add
       Machine.Examples.Common
+      Machine.Examples.Energy
+      Machine.Examples.GCD
       Machine.Semantics
       Machine.SMT
       Machine.Symbolic
@@ -41,11 +43,13 @@ library
       Paths_fine_grained_state
   hs-source-dirs:
       src
-  default-extensions: TypeFamilies TypeApplications ScopedTypeVariables DerivingVia DeriveFunctor StandaloneDeriving MultiParamTypeClasses KindSignatures ConstraintKinds FlexibleInstances FlexibleContexts GADTs RankNTypes OverloadedStrings LambdaCase MultiWayIf
+  default-extensions: TypeFamilies TypeApplications TypeOperators DataKinds ScopedTypeVariables DerivingVia DeriveFunctor StandaloneDeriving MultiParamTypeClasses KindSignatures ConstraintKinds FlexibleInstances FlexibleContexts GADTs RankNTypes OverloadedStrings LambdaCase MultiWayIf
   build-depends:
       base >=4.7 && <5
     , containers
     , mtl
     , sbv
     , selective
+    , units
+    , units-defs
   default-language: Haskell2010

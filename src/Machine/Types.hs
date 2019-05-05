@@ -28,7 +28,7 @@ data Flag = Zero
           | Halted
           deriving (Show, Prelude.Read, Eq, Ord, Enum)
 
-type Value = Int16
+type Value = Int64
 
 -- | 'Clock' is the current time measured in clock cycles. It used to model the
 -- effect of the 'Iam.Semantics.wait' instruction.
