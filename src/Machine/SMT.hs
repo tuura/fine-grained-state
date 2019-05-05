@@ -96,22 +96,16 @@ createSym cs = do
             pure (i, v)
           createSymPair _ = error "Non-variable encountered."
 
--- | Convert a list of path constraints to a
--- | symbolic value the SMT solver can solve.
--- | Each constraint in the list is conjoined
--- | with the others.
+-- | Convert a list of path constraints to a symbolic value the SMT solver can solve.
+--   Each constraint in the list is conjoined with the others.
 toSMT :: [Sym] -> SBV.Symbolic SBV.SVal
 toSMT cs = do
   let freeVars = gatherFree (foldr SAnd (SConst 1) cs)
-  -- liftIO $ print $ cs'
-  -- let constr = (\x acc-> SAnd (SAnd x (SLt x (SConst 10))) acc)
-  --     freeVars = gatherFree (foldr constr (SConst 1) c)
   sValMap <- createSym (Set.toList freeVars)
-  -- let lt10 c = SAnd (SLt c (SConst 10)) c
   smts <- traverse (symToSMT sValMap) cs
-
   pure $ conjoin smts
 
+-- | Translate untyped symbolic value into the SBV.Dynamic representation
 symToSMT :: Map.Map Int SBV.SVal -> Sym -> SBV.Symbolic SBV.SVal
 symToSMT m (SEq l r) =
   sValToSWord <$> (SBV.svEqual <$> symToSMT m l <*> symToSMT m r)
@@ -149,38 +143,39 @@ symToSMT m (SAny i) = do
 valueToSVal :: Value -> SBV.SVal
 valueToSVal w = SBV.svInteger (SBV.KBounded True 16) (toInteger w)
 
+-- | Unsafely coerce SBV's untyped symbolic value from SWord to SBool
 sValToSBool :: SBV.SVal -> SBV.SVal
 sValToSBool w = w `SBV.svNotEqual` (valueToSVal 0)
 
+-- | Unsafely coerce SBV's untyped symbolic value from SBool to SWord
 sValToSWord :: SBV.SVal -> SBV.SVal
 sValToSWord w = SBV.svIte w (valueToSVal 1) (valueToSVal 0)
 
+data SolvedState = SolvedState SymState SBV.SMTResult
+
+-- | Render the output of the SMT solver into a human-readable form
 renderSMTResult :: SBV.SMTResult -> String
 renderSMTResult (SBV.Unsatisfiable _ _) = "Unsatisfiable"
 renderSMTResult s@(SBV.Satisfiable _ _) =
   let dict = SBV.getModelDictionary s
-  in
-    if Map.null dict then "Trivial" else renderDict dict
+  in  if Map.null dict then "Trivial" else renderDict dict
 renderSMTResult _ = "Error"
-
-renderSolvedState :: SolvedState -> String
-renderSolvedState (SolvedState state c) =
-  "IC: " <> show (instructionCounter state) <> "\n" <>
-  "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
-  "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
---   "Stack: " <> show (renderSym <$> st) <> "\n" <>
-  "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
-  "Solved Values: " <> renderSMTResult c
-
-renderPathConstraints :: [Typed.Sym Bool] -> String
-renderPathConstraints xs = foldr (\x acc -> "  && " <> show x <> "\n" <> acc) "" xs
 
 renderDict :: (Show v) => Map.Map String v -> String
 renderDict m =
   foldr toStr "" (Map.toList m)
   where toStr (k,v) s = k <> " = " <> show v <> ", " <> s
 
-data SolvedState = SolvedState SymState SBV.SMTResult
+renderSolvedState :: SolvedState -> String
+renderSolvedState (SolvedState state c) =
+  "IC: " <> show (instructionCounter state) <> "\n" <>
+  "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
+  "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
+  "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
+  "Solved Values: " <> renderSMTResult c
+
+renderPathConstraints :: [Typed.Sym Bool] -> String
+renderPathConstraints xs = foldr (\x acc -> "  && " <> show x <> "\n" <> acc) "" xs
 
 solveSym :: Trace -> IO (Tree.Tree SolvedState)
 solveSym (Tree.Node state c) = do
