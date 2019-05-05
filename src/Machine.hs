@@ -51,7 +51,7 @@ addExample = do
         initialState = boot prog mem
         trace = runModel steps initialState
     print prog
-    putStrLn $ Tree.drawTree $ fmap renderSymState $ trace
+    putStrLn $ Tree.drawTree $ fmap renderState $ trace
 
 gcdProgram :: Program
 gcdProgram = zip [0..] $ map encode
@@ -79,7 +79,7 @@ overflow (Tree.Node state children) =
         state' = state {pathConstraintList = SNot (overflowNotSet state) : cs}
     in Tree.Node state' (overflow <$> children)
 
-overflowNotSet :: SymState -> Sym Bool
+overflowNotSet :: State -> Sym Bool
 overflowNotSet s = SNot $ (Map.!) (flags s) Overflow
 
 queryTrace :: Tree.Tree SMT.SolvedState -> [SMT.SolvedState]

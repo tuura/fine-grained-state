@@ -90,18 +90,7 @@ symToSMT m (SAny i) =
     Just val -> pure val
     Nothing -> error "Missing symbolic variable."
 
--- valueToSVal :: Value -> SBV.SVal
--- valueToSVal w = SBV.svInteger (SBV.KBounded True 16) (toInteger w)
-
--- -- | Unsafely coerce SBV's untyped symbolic value from SWord to SBool
--- sValToSBool :: SBV.SVal -> SBV.SVal
--- sValToSBool w = w `SBV.svNotEqual` (valueToSVal 0)
-
--- -- | Unsafely coerce SBV's untyped symbolic value from SBool to SWord
--- sValToSWord :: SBV.SVal -> SBV.SVal
--- sValToSWord w = SBV.svIte w (valueToSVal 1) (valueToSVal 0)
-
-data SolvedState = SolvedState SymState SBV.SMTResult
+data SolvedState = SolvedState State SBV.SMTResult
 
 -- | Render the output of the SMT solver into a human-readable form
 renderSMTResult :: SBV.SMTResult -> String
@@ -127,15 +116,19 @@ renderSolvedState (SolvedState state c) =
 renderPathConstraints :: [Sym Bool] -> String
 renderPathConstraints xs = foldr (\x acc -> "  && " <> show x <> "\n" <> acc) "" xs
 
-solveSym :: Trace -> IO (Tree.Tree SolvedState)
-solveSym (Tree.Node state c) = do
+-- | Solve the path constraints in a symbolic execution state
+solveSym :: State -> IO SolvedState
+solveSym state = do
     let smtExpr = toSMT $ pathConstraintList state
     SBV.SatResult smtRes <- SBV.satWith prover smtExpr
-    children <- traverse solveSym c
-    pure $ Tree.Node (SolvedState state smtRes) children
+    pure (SolvedState state smtRes)
+
+-- | Traverse a symbolic execution trace and solve path constraints in every node
+solveTrace :: Trace -> IO (Tree.Tree SolvedState)
+solveTrace = traverse solveSym
 
 conjoin :: [SBV.SBool] -> SBV.SBool
-conjoin = SBV.bAnd -- foldr (SBV.svAnd . sValToSBool) SBV.svTrue
+conjoin = SBV.bAnd
 
 valName :: Int -> String
 valName i = "val_" <> (show i)

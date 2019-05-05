@@ -1,7 +1,9 @@
 module Machine.Symbolic where
 
+import Control.Monad (ap)
+import Data.Functor (void)
 import Control.Selective
-import Control.Monad.State
+import Control.Monad.State.Class
 import qualified Data.Map.Strict as Map
 
 import Machine.Types
@@ -15,7 +17,7 @@ import qualified Data.Tree as Tree
 --------------------------------------------------------------------------------
 
 -- | The state of symbolic computation
-data SymState = SymState { registers         :: Map.Map Register (Sym Value)
+data State = State { registers         :: Map.Map Register (Sym Value)
                          , instructionCounter :: InstructionAddress -- Sym
                          , instructionRegister :: InstructionCode
                          , flags :: Map.Map Flag (Sym Bool)
@@ -25,8 +27,8 @@ data SymState = SymState { registers         :: Map.Map Register (Sym Value)
                          , pathConstraintList :: [Sym Bool]
                          }
 
-renderSymState :: SymState -> String
-renderSymState state =
+renderState :: State -> String
+renderState state =
   "IC: " <> show (instructionCounter state) <> "\n" <>
   "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
   "Registers: " <> show (registers state) <> "\n" <>
@@ -47,8 +49,8 @@ initialiseMemory vars =
     let blankMemory = Map.fromList $ zip [0..255] (map SConst [0, 0..])
     in foldr (\(addr, value) acc -> Map.adjust (const value) (fromIntegral addr) acc) blankMemory vars
 
-boot :: Program -> Map.Map MemoryAddress (Sym Value) -> SymState
-boot prog mem = SymState { registers = emptyRegisters
+boot :: Program -> Map.Map MemoryAddress (Sym Value) -> State
+boot prog mem = State { registers = emptyRegisters
                          , instructionCounter = 0
                          , instructionRegister = encode . Instruction $ Jump 0
                          , program = prog
@@ -61,12 +63,12 @@ boot prog mem = SymState { registers = emptyRegisters
 
 
 -- | The symbolic execution trace
-type Trace = Tree.Tree SymState
+type Trace = Tree.Tree State
 
 -- | The Symbolic Execution Engine maintains the state of the machine and a list
 --   of path constraints.
 data SymEngine a = SymEngine
-    { runSymEngine :: SymState -> [(a, SymState)] }
+    { runSymEngine :: State -> [(a, State)] }
     deriving Functor
 
 -- | A standard 'Applicative' instance available for any 'Monad'.
@@ -85,7 +87,7 @@ whenSym cond comp = -- select (bool (Right ()) (Left ()) <$> x) (const <$> y)
         -- pure ((), appendConstraints [(SNot evalCond)] s'')
     -- concat [f a (snd b) | a <- runSymEngine cond s, b <- runSymEngine comp (snd a)]
     where
-        f :: (Sym Bool, SymState) -> SymState -> [((), SymState)]
+        f :: (Sym Bool, State) -> State -> [((), State)]
         f (b, sNoExec) sOnExec =
             [ ((), appendConstraints [b] sOnExec)
             , ((), appendConstraints [(SNot b)] sNoExec)]
@@ -99,11 +101,11 @@ instance Prelude.Monad SymEngine where
         let outcomes = r s
         in concat $ map (\(result, state) -> runSymEngine (f result) state) outcomes
 
-instance (MonadState SymState) SymEngine where
+instance (MonadState State) SymEngine where
     get   = SymEngine $ \s -> [(s, s)]
     put s = SymEngine $ \_ -> [((), s)]
 
-appendConstraints :: [Sym Bool] -> SymState -> SymState
+appendConstraints :: [Sym Bool] -> State -> State
 appendConstraints cs s =
     let cs' = cs ++ pathConstraintList s
     in s { pathConstraintList = cs' }
@@ -115,7 +117,7 @@ jumpZeroSym simm =
     whenSym (readKey (F Zero))
             (void $ writeKey IC ((SAdd (SConst . fromIntegral $ simm)) <$> readKey IC))
 
-symStep :: SymState -> [SymState]
+symStep :: State -> [State]
 symStep state =
     let [(instrCode, fetched)] = (flip runSymEngine) state $ do
                                     fetchInstruction
@@ -142,7 +144,7 @@ unsafeFoldSConst :: Sym Value -> Sym Value
 unsafeFoldSConst = SConst . foldr (\(SConst x) acc -> x + acc) 0 . unsafeLeafs
 
 
-runModel :: Int -> SymState -> Trace
+runModel :: Int -> State -> Trace
 runModel steps state
     | steps <= 0 = Tree.Node state []
     | otherwise  = if halted then Tree.Node state [] else Tree.Node state children
