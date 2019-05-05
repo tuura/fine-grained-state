@@ -1,21 +1,19 @@
 module Machine.SMT where
 
 import qualified Data.Map.Strict as Map
-import qualified Data.Tree as Tree
-import qualified Data.Set as Set
-import Data.Monoid
-import Control.Monad.Reader (ask)
-import Control.Monad.Trans (liftIO)
-import qualified Data.SBV as SBV
-import Data.SBV (constrain, SBool, (.<))
-import Data.Bool (bool)
-import Data.Int (Int16)
-import Data.Typeable
-
-
-import Machine.Decode
-import Machine.Types
-import Machine.Symbolic
+import qualified Data.Tree       as Tree
+import qualified Data.Set        as Set
+import qualified Data.SBV        as SBV
+import           Data.Monoid
+import           Control.Monad.Reader (ask)
+import           Control.Monad.Trans (liftIO)
+import           Data.Bool (bool)
+import           Data.Int (Int16)
+import           Machine.Decode
+import           Machine.Types
+import           Machine.Types.State
+import           Machine.Types.Trace
+import           Machine.Symbolic
 
 -- | Walk the constraint gathering up the free variables.
 gatherFree :: Sym a -> Set.Set (Sym Value)
@@ -89,34 +87,6 @@ symToSMT m (SAny i) =
     Just val -> pure val
     Nothing -> error "Missing symbolic variable."
 
-data SolvedState = SolvedState State SBV.SMTResult
-
--- | Render the output of the SMT solver into a human-readable form
-renderSMTResult :: SBV.SMTResult -> String
-renderSMTResult (SBV.Unsatisfiable _ _) = "Unsatisfiable"
-renderSMTResult s@(SBV.Satisfiable _ _) =
-  let dict = SBV.getModelDictionary s
-  in  if Map.null dict then "Trivial" else renderDict dict
-renderSMTResult _ = "Error"
-
-renderDict :: Show v => Map.Map String v -> String
-renderDict m =
-  foldr toStr "" (Map.toList m)
-  where toStr (k,v) s = k <> " = " <> show v <> ", " <> s
-
-renderSolvedState :: SolvedState -> String
-renderSolvedState (SolvedState state c) =
-  "Clock: " <> show (clock state) <> "\n" <>
-  "IC: " <> show (instructionCounter state) <> "\n" <>
-  "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
-  "Regs: " <> show (Map.toList $ registers state) <> "\n" <>
-  "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
-  "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
-  "Solved Values: " <> renderSMTResult c
-
-renderPathConstraints :: [Sym Bool] -> String
-renderPathConstraints xs = foldr (\x acc -> "  && " <> show x <> "\n" <> acc) "" xs
-
 -- | Solve the path constraints in a symbolic execution state
 solveSym :: State -> IO SolvedState
 solveSym state = do
@@ -125,7 +95,7 @@ solveSym state = do
     pure (SolvedState state smtRes)
 
 -- | Traverse a symbolic execution trace and solve path constraints in every node
-solveTrace :: Trace -> IO (Tree.Tree SolvedState)
+solveTrace :: Trace State -> IO (Trace SolvedState)
 solveTrace = traverse solveSym
 
 conjoin :: [SBV.SBool] -> SBV.SBool

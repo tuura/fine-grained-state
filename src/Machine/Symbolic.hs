@@ -1,67 +1,23 @@
 module Machine.Symbolic where
 
-import Control.Monad (ap)
-import Data.Functor (void)
-import Control.Selective
-import Control.Monad.State.Class
+import           Control.Monad (ap)
+import           Data.Functor (void)
+import           Control.Selective
+import           Control.Monad.State.Class
+import           Control.Monad.State (evalState)
 import qualified Data.Map.Strict as Map
-
-import Machine.Types
-import Machine.Encode
-import Machine.Decode
-import Machine.Semantics
-import qualified Data.Tree as Tree
+import qualified Data.Tree       as Tree
+import           Machine.Types
+import           Machine.Types.State
+import           Machine.Types.Trace
+import           Machine.Encode
+import           Machine.Decode
+import           Machine.Semantics
 
 --------------------------------------------------------------------------------
 ---------------- Symbolic Engine -----------------------------------------------
 --------------------------------------------------------------------------------
 
--- | The state of symbolic computation
-data State = State { registers         :: Map.Map Register (Sym Value)
-                   , instructionCounter :: InstructionAddress -- Sym
-                   , instructionRegister :: InstructionCode
-                   , flags :: Map.Map Flag (Sym Bool)
-                   , memory :: Map.Map MemoryAddress (Sym Value)
-                   , program :: Program
-                   , clock :: Clock
-                   , pathConstraintList :: [Sym Bool]
-                   }
-
-renderState :: State -> String
-renderState state =
-  "IC: " <> show (instructionCounter state) <> "\n" <>
-  "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
-  "Registers: " <> show (registers state) <> "\n" <>
-  "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
-  "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n"
-  where
-    renderPathConstraints :: Show a => [Sym a] -> String
-    renderPathConstraints xs = foldr (\x acc -> " && " <> show x <> "\n" <> acc) "" xs
-
-emptyRegisters :: Map.Map Register (Sym Value)
-emptyRegisters = Map.fromList $ zip [R0, R1, R2, R3] (map SConst [0, 0..])
-
-emptyFlags :: Map.Map Flag (Sym Bool)
-emptyFlags = Map.fromList $ zip [Zero, Overflow, Halted] (map SConst $ repeat False)
-
-initialiseMemory :: [(MemoryAddress, Sym Value)] -> Map.Map MemoryAddress (Sym Value)
-initialiseMemory vars =
-    let blankMemory = Map.fromList $ zip [0..255] (map SConst [0, 0..])
-    in foldr (\(addr, value) acc -> Map.adjust (const value) (fromIntegral addr) acc) blankMemory vars
-
-boot :: Program -> Map.Map MemoryAddress (Sym Value) -> State
-boot prog mem = State { registers = emptyRegisters
-                      , instructionCounter = 0
-                      , instructionRegister = encode . Instruction $ Jump 0
-                      , program = prog
-                      , flags = emptyFlags
-                      , memory = mem
-                      , clock = 0
-                      , pathConstraintList = []
-                      }
-
--- | The symbolic execution trace
-type Trace = Tree.Tree State
 
 -- | The Symbolic Execution Engine maintains the state of the machine and a list
 --   of path constraints.
@@ -103,11 +59,6 @@ instance (MonadState State) SymEngine where
     get   = SymEngine $ \s -> [(s, s)]
     put s = SymEngine $ \_ -> [((), s)]
 
-appendConstraints :: [Sym Bool] -> State -> State
-appendConstraints cs s =
-    let cs' = cs ++ pathConstraintList s
-    in s { pathConstraintList = cs' }
-
 -- | The semantics for JumpZero for now has to be hijacked and implemented in terms of the
 --   symbolic-aware whenSym (instead of the desired Selective whenS).
 jumpZeroSym :: SImm8 -> SymEngine ()
@@ -148,15 +99,19 @@ unsafeLeafs = go []
 unsafeFoldSConst :: Sym Value -> Sym Value
 unsafeFoldSConst = SConst . foldr (\(SConst x) acc -> x + acc) 0 . unsafeLeafs
 
+runModelM :: MonadState NodeId m => Int -> State -> m (Trace State)
+runModelM steps state = do
+    modify (+ 1)
+    nodeId <- get
+    let halted    = (Map.!) (flags state) Halted == SConst True
+        newStates = symStep state
+    if | steps <= 0 -> pure (mkTrace (Node nodeId state) [])
+       | otherwise  -> if halted then pure (mkTrace (Node nodeId state) [])
+                                 else do children <- traverse (runModelM (steps - 1)) newStates
+                                         pure $ mkTrace (Node nodeId state) children
 
-runModel :: Int -> State -> Trace
-runModel steps state
-    | steps <= 0 = Tree.Node state []
-    | otherwise  = if halted then Tree.Node state [] else Tree.Node state children
-  where
-    halted    = (Map.!) (flags state) Halted == SConst True
-    newStates = symStep state
-    children  = runModel (steps - 1) <$> newStates
+runModel :: Int -> State -> Trace State
+runModel steps state = evalState (runModelM steps state) 0
 
 -- | Instance of the Machine.Metalanguage read command for symbolic execution
 readKey :: Key a -> SymEngine (Sym a)

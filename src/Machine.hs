@@ -1,16 +1,18 @@
 module Machine where
 
-import System.IO.Unsafe (unsafePerformIO)
-import Control.Selective
-import Data.Foldable (sequenceA_)
-import qualified Data.Tree as Tree
+import           System.IO.Unsafe (unsafePerformIO)
+import           Control.Selective
+import           Data.Foldable (sequenceA_)
+-- import qualified Data.Tree as Tree
 import qualified Data.SBV.Dynamic as SBV
-import Machine.Types
-import Machine.Semantics
-import Machine.Symbolic
+import           Machine.Types
+import           Machine.Types.State
+import           Machine.Types.Trace
+import           Machine.Semantics
+import           Machine.Symbolic
 import qualified Machine.SMT as SMT
 import qualified Data.Map.Strict as Map
-import Machine.Encode
+import           Machine.Encode
 
 ----------------------------------------------------------------------------------------------------
 ------------------- Examples -----------------------------------------------------------------------
@@ -40,7 +42,6 @@ addExample = do
           [ Instruction (Load R0 0)
           , Instruction (Add R0 1)
           , Instruction (Halt)
-          , Instruction (Halt)
           ]
         steps = 15
         -- x = SConst 2
@@ -49,9 +50,15 @@ addExample = do
         y = SAny 1
         mem = initialiseMemory [(0, x), (1, y)]
         initialState = boot prog mem
-        trace = runModel steps initialState
-    print prog
-    putStrLn $ Tree.drawTree $ fmap renderState $ trace
+        trace =
+                constraint overflowSet $
+                constraint (const (x `SGt` (SConst 20))) $
+                constraint (const (x `SLt` (SConst 30))) $
+                constraint (const (y `SGt` (SConst 0)))  $
+                constraint (const (y `SLt` (SConst 10))) $
+                runModel steps initialState
+    solved <- SMT.solveTrace trace
+    putStrLn $ renderSolvedTrace $ solved
 
 gcdProgram :: Program
 gcdProgram = zip [0..] $ map encode
@@ -73,37 +80,11 @@ gcdProgram = zip [0..] $ map encode
     , Instruction Halt
     ]
 
-overflow :: Trace -> Trace
-overflow (Tree.Node state children) =
-    let cs = pathConstraintList state
-        state' = state {pathConstraintList = SNot (overflowNotSet state) : cs}
-    in Tree.Node state' (overflow <$> children)
+overflowSet :: State -> Sym Bool
+overflowSet s = (Map.!) (flags s) Overflow
 
-overflowNotSet :: State -> Sym Bool
-overflowNotSet s = SNot $ (Map.!) (flags s) Overflow
-
-queryTrace :: Tree.Tree SMT.SolvedState -> [SMT.SolvedState]
-queryTrace tr =
-    let f x@(SMT.SolvedState st smtres) = if isUnsatisfiable smtres then [] else [x]
-    in foldMap f tr
-    -- all (\(SMT.SolvedState st smtres) -> isUnsatisfiable smtres)
-    where
-        isUnsatisfiable :: SBV.SMTResult -> Bool
-        isUnsatisfiable = \case
-            (SBV.Unsatisfiable _ _) -> True
-            _ -> False
-
-traceDepth :: Trace -> Int
-traceDepth = length . Tree.flatten
-
-subsetTrace :: (State -> Bool) -> Trace -> [State]
-subsetTrace property =
-    foldMap (\s -> if property s then [s] else [])
-
-halted :: State -> Bool -- Maybe (Sym Bool)
-halted s =
-    let sval = Map.lookup Halted (flags s)
-    in  sval == (Just (SConst True))
+halted :: State -> Sym Bool
+halted s = (Map.!) (flags s) Halted
 
 gcdExample :: IO ()
 gcdExample = do
@@ -114,17 +95,19 @@ gcdExample = do
         y = SAny 1
         mem = initialiseMemory [(0, x), (1, y)]
         initialState = boot gcdProgram mem
-        -- s = initialState
-        s = appendConstraints [ x `SGt` (SConst 20), x `SLt` (SConst 30)
-                              , y `SGt` (SConst 0), y `SLt` (SConst 10)
-                              ] initialState
-        trace = overflow $
-                runModel steps s
+        trace =
+                constraint overflowSet $
+                constraint (const (x `SGt` (SConst 20))) $
+                constraint (const (x `SLt` (SConst 30))) $
+                constraint (const (y `SGt` (SConst 0)))  $
+                constraint (const (y `SLt` (SConst 10))) $
+                -- constraint halted $
+                runModel steps initialState
     -- print gcdProgram
     -- putStrLn $ Tree.drawTree $ fmap renderState $ trace
-    putStrLn $ unlines $ fmap renderState $ subsetTrace halted trace
+    -- putStrLn $ unlines $ fmap renderState $ subsetTrace halted trace
     s <- SMT.solveTrace trace
     putStrLn $ "Trace depth: " ++ show (traceDepth trace)
-    putStrLn $ Tree.drawTree $ fmap SMT.renderSolvedState s
+    putStrLn $ renderSolvedTrace $ s
     -- putStrLn . unlines . fmap SMT.renderSolvedState $ queryTrace s
     -- print $ map SMT.renderSMTResult . map (\(SMT.SolvedState x y) -> y) $ queryTrace s

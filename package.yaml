@@ -23,12 +23,14 @@ default-extensions:
 - TypeFamilies
 - TypeApplications
 - ScopedTypeVariables
+- DerivingVia
 - DeriveFunctor
 - StandaloneDeriving
 - MultiParamTypeClasses
 - KindSignatures
 - ConstraintKinds
 - FlexibleInstances
+- FlexibleContexts
 - GADTs
 - RankNTypes
 - OverloadedStrings

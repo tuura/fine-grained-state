@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1b8611f59292bd6bbfba108eada41e8643493f81457cadc4e889e89ffd972166
+-- hash: 25a199a352175465bc8b26c0b97c15bbf11a92fac2ba481f005cb67a3350f164
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -30,15 +30,18 @@ library
       Machine
       Machine.Decode
       Machine.Encode
+      Machine.Examples.Common
       Machine.Semantics
       Machine.SMT
       Machine.Symbolic
       Machine.Types
+      Machine.Types.State
+      Machine.Types.Trace
   other-modules:
       Paths_fine_grained_state
   hs-source-dirs:
       src
-  default-extensions: TypeApplications ScopedTypeVariables DeriveFunctor StandaloneDeriving MultiParamTypeClasses KindSignatures ConstraintKinds FlexibleInstances GADTs RankNTypes OverloadedStrings LambdaCase MultiWayIf
+  default-extensions: TypeFamilies TypeApplications ScopedTypeVariables DerivingVia DeriveFunctor StandaloneDeriving MultiParamTypeClasses KindSignatures ConstraintKinds FlexibleInstances FlexibleContexts GADTs RankNTypes OverloadedStrings LambdaCase MultiWayIf
   build-depends:
       base >=4.7 && <5
     , containers
