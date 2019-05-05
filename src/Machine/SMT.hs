@@ -6,7 +6,6 @@ import qualified Data.Set as Set
 import Data.Monoid
 import Control.Monad.Reader (ask)
 import Control.Monad.Trans (liftIO)
--- import qualified Data.SBV.Dynamic as SBV
 import qualified Data.SBV as SBV
 import Data.SBV (constrain, SBool, (.<))
 import Data.Bool (bool)
@@ -107,8 +106,10 @@ renderDict m =
 
 renderSolvedState :: SolvedState -> String
 renderSolvedState (SolvedState state c) =
+  "Clock: " <> show (clock state) <> "\n" <>
   "IC: " <> show (instructionCounter state) <> "\n" <>
   "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
+  "Regs: " <> show (Map.toList $ registers state) <> "\n" <>
   "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
   "Solved Values: " <> renderSMTResult c

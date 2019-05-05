@@ -92,6 +92,19 @@ queryTrace tr =
         isUnsatisfiable = \case
             (SBV.Unsatisfiable _ _) -> True
             _ -> False
+
+traceDepth :: Trace -> Int
+traceDepth = length . Tree.flatten
+
+subsetTrace :: (State -> Bool) -> Trace -> [State]
+subsetTrace property =
+    foldMap (\s -> if property s then [s] else [])
+
+halted :: State -> Bool -- Maybe (Sym Bool)
+halted s =
+    let sval = Map.lookup Halted (flags s)
+    in  sval == (Just (SConst True))
+
 gcdExample :: IO ()
 gcdExample = do
     let steps = 15
@@ -101,14 +114,17 @@ gcdExample = do
         y = SAny 1
         mem = initialiseMemory [(0, x), (1, y)]
         initialState = boot gcdProgram mem
-        s = initialState
-        -- s = appendConstraints [ x `SGt` (SConst 20), x `SLt` (SConst 30)
-        --                       , y `SGt` (SConst 0), y `SLt` (SConst 10)
-        --                       ] initialState
+        -- s = initialState
+        s = appendConstraints [ x `SGt` (SConst 20), x `SLt` (SConst 30)
+                              , y `SGt` (SConst 0), y `SLt` (SConst 10)
+                              ] initialState
         trace = overflow $
                 runModel steps s
     -- print gcdProgram
-    -- putStrLn $ Tree.drawTree $ fmap renderSymState $ trace
-    s <- SMT.solveSym trace
+    -- putStrLn $ Tree.drawTree $ fmap renderState $ trace
+    putStrLn $ unlines $ fmap renderState $ subsetTrace halted trace
+    s <- SMT.solveTrace trace
+    putStrLn $ "Trace depth: " ++ show (traceDepth trace)
     putStrLn $ Tree.drawTree $ fmap SMT.renderSolvedState s
-    putStrLn . unlines . fmap SMT.renderSolvedState $ queryTrace s
+    -- putStrLn . unlines . fmap SMT.renderSolvedState $ queryTrace s
+    -- print $ map SMT.renderSMTResult . map (\(SMT.SolvedState x y) -> y) $ queryTrace s
