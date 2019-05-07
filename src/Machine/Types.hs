@@ -77,7 +77,7 @@ instance Show (InstructionImpl c) where
     Mod   reg addr  -> "Mod " ++ show reg ++ " " ++ show addr
     Abs   reg       -> "Abs " ++ show reg
     Jump  offset    -> "Jump " ++ show offset
-    JumpZero offset    -> "Jump " ++ show offset
+    JumpZero offset -> "JumpZero " ++ show offset
     LoadMI reg addr -> "LoadMI " ++ show reg ++ " " ++ show addr
 
 data Instruction = forall c. Instruction (InstructionImpl c)

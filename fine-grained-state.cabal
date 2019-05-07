@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a91e287382b183cdd2748c7f5c3ea8f2a9cdd8dcf532e680b71bc5c12e9659b8
+-- hash: eaf76b1dd04a4f0234d6d781647649ec0bec387345887ae86e9915763c0e614c
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
       Machine.Examples.Common
       Machine.Examples.Energy
       Machine.Examples.GCD
+      Machine.Examples.Sum
       Machine.Semantics
       Machine.SMT
       Machine.Symbolic

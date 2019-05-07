@@ -27,8 +27,9 @@ renderState :: State -> String
 renderState state =
   "IC: " <> show (instructionCounter state) <> "\n" <>
   "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
-  "Registers: " <> show (registers state) <> "\n" <>
+  "Registers: " <> show (Map.toList $ registers state) <> "\n" <>
   "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
+  "Memory: " <> show (filter ((/= SConst 0) . snd) . Map.toList $ memory state) <> "\n" <>
   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n"
 
 renderPathConstraints :: [Sym Bool] -> String
@@ -96,6 +97,7 @@ renderSolvedState (SolvedState state c) =
   "IC: " <> show (instructionCounter state) <> "\n" <>
   "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
   "Regs: " <> show (Map.toList $ registers state) <> "\n" <>
+  "Memory: " <> show (filter ((not . nonZero) . snd) . Map.toList $ memory state) <> "\n" <>
   "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
   "Solved Values: " <> renderSMTResult c

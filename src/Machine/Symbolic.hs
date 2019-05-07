@@ -66,6 +66,15 @@ jumpZeroSym simm =
     whenSym (readKey (F Zero))
             (void $ writeKey IC ((SAdd (SConst . fromIntegral $ simm)) <$> readKey IC))
 
+loadMISym :: Register -> MemoryAddress -> SymEngine ()
+loadMISym rX dmemaddr = do
+    writeRegister rX =<< readMemory =<< toMemoryAddress <$> readMemory dmemaddr
+    where toMemoryAddress :: Sym Value -> MemoryAddress
+          toMemoryAddress val = case (getValue val) of
+            (Just val) ->
+                Machine.Decode.fromBitsLE (take 16 $ Machine.Decode.blastLE val)
+            _ -> error "loadMISym: can't perform indirect memory load with a symbolic pointer"
+
 -- | Perform one step of symbolic execution
 symStep :: State -> [State]
 symStep state =
@@ -73,6 +82,7 @@ symStep state =
         instrSemantics =
              case decode instrCode of
                 (Instruction (JumpZero offset)) -> jumpZeroSym offset
+                (Instruction (LoadMI reg addr)) -> loadMISym reg addr
                 i                               -> instructionSemantics i readKey writeKey
     in map snd $ runSymEngine instrSemantics fetched
 
@@ -118,8 +128,8 @@ writeKey k v = case k of
     Reg  target -> v >>= (\x -> writeRegister target x *> pure x)
     Addr target -> v >>= (\x -> writeMemory   target x *> pure x)
     F    flag   -> v >>= (\x -> writeFlag flag x *> pure x)
-    IC          -> v >>= \x -> case (unsafeFoldSConst x) of
-        (SConst val) -> (modify $ \s -> s {instructionCounter = val}) *> pure (SConst val)
+    IC          -> v >>= \x -> case getValue x of
+        (Just val) -> (modify $ \s -> s {instructionCounter = val}) *> pure (SConst val)
         _ -> error "Machine.Semantics.Symbolic.writeKey: symbolic IC is not supported"
     IR        -> v >>= \case
         (SConst val) -> writeInstructionRegister val *> pure (SConst val)
@@ -146,6 +156,9 @@ writeRegister :: Register -> Sym Value -> SymEngine ()
 writeRegister target value =
     modify $ \s ->
         s {registers = Map.adjust (const value) target (registers s)}
+
+readMemory :: MemoryAddress -> SymEngine (Sym Value)
+readMemory src = (Map.!) <$> (memory    <$> get) <*> pure src
 
 -- | Write a new 'Value' to the given 'MemoryAddress'. We assume that it takes 2
 -- clock cycles to access the memory in hardware.
