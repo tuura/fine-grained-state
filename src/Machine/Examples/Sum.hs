@@ -1,5 +1,6 @@
 module Machine.Examples.Sum where
 
+import qualified Data.Map         as Map
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
@@ -58,13 +59,15 @@ sumArrayLowLevel =
     , Instruction (Halt)
     ]
 
+reg2HasResult :: State -> Sym Bool
+reg2HasResult s =
+    case (Map.!) (registers s) R2 of
+        (SAdd (SAny 1) (SAdd (SAny 2) (SAdd (SAny 3) (SConst 0)))) -> SConst True
+        _ -> SConst False
+
 sumExample :: Int -> IO ()
 sumExample arraySize = do
     let steps = 40
-        -- x = SConst 2
-        -- y = SConst 3
-        -- x = SAny 0
-        -- y = SAny 1
     let names = map (("x" ++) . show) [1..arraySize]
     let summands = map SAny [1..length names]
     -- constrain xs to be in [0, 1000]
@@ -75,6 +78,8 @@ sumExample arraySize = do
         initialState = boot sumArrayLowLevel mem
         trace =
                 -- constraint overflowSet $
+                constraint "Halted" halted $
+                constraint "ResultIsCorrect" reg2HasResult $
                 -- constraint (const (x `SGt` (SConst 20))) $
                 -- constraint (const (x `SLt` (SConst 30))) $
                 -- constraint (const (y `SGt` (SConst 0)))  $

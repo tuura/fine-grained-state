@@ -43,8 +43,8 @@ whenSym cond comp = -- select (bool (Right ()) (Left ()) <$> x) (const <$> y)
     where
         f :: (Sym Bool, State) -> State -> [((), State)]
         f (b, sNoExec) sOnExec =
-            [ ((), appendConstraints [b] sOnExec)
-            , ((), appendConstraints [(SNot b)] sNoExec)]
+            [ ((), appendConstraints [("", b)] sOnExec)
+            , ((), appendConstraints [("", SNot b)] sNoExec)]
 
 instance Selective SymEngine where
     select = selectM

@@ -90,7 +90,7 @@ symToSMT m (SAny i) =
 -- | Solve the path constraints in a symbolic execution state
 solveSym :: State -> IO SolvedState
 solveSym state = do
-    let smtExpr = toSMT $ pathConstraintList state
+    let smtExpr = toSMT . map snd $ pathConstraintList state
     SBV.SatResult smtRes <- SBV.satWith prover smtExpr
     pure (SolvedState state smtRes)
 

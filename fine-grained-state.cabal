@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: eaf76b1dd04a4f0234d6d781647649ec0bec387345887ae86e9915763c0e614c
+-- hash: 98714d97e96edb7a8cda918a198fbb7c211dadc49d88f284cd428b3b0e996fa4
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -47,6 +47,7 @@ library
   default-extensions: TypeFamilies TypeApplications TypeOperators DataKinds ScopedTypeVariables DerivingVia DeriveFunctor StandaloneDeriving MultiParamTypeClasses KindSignatures ConstraintKinds FlexibleInstances FlexibleContexts GADTs RankNTypes OverloadedStrings LambdaCase MultiWayIf
   build-depends:
       base >=4.7 && <5
+    , bifunctors
     , containers
     , mtl
     , sbv

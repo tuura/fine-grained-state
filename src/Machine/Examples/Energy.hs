@@ -74,15 +74,15 @@ energyEstimateExample = do
                 -- constraint (const (p1 `SLt` (SConst $ toMilliWatts (1 % Watt)))) $
                 -- constraint (const (p2 `SGt` (SConst 0)))
                 -- constraint (const (p2 `SLt` (SConst $ toMilliWatts (1 % Watt)))) $
-                constraint overflowSet $
-                constraint (const (t1 `SGt` (SConst 0))) $
-                constraint (const (t1 `SLt` (SConst 948672000000))) $
-                constraint (const (t2 `SGt` (SConst 0))) $
-                constraint (const (t2 `SLt` (SConst 948672000000))) $
-                constraint (const (p1 `SGt` (SConst 0))) $
-                constraint (const (p1 `SLt` (SConst 1000))) $
-                constraint (const (p2 `SGt` (SConst 0))) $
-                constraint (const (p2 `SLt` (SConst 1000))) $
+                constraint "no overflow" overflowSet $
+                constraint "t1 is in range" (const (t1 `SGt` (SConst 0))) $
+                constraint "t1 is in range" (const (t1 `SLt` (SConst 948672000000))) $
+                constraint "t2 is in range" (const (t2 `SGt` (SConst 0))) $
+                constraint "t2 is in range" (const (t2 `SLt` (SConst 948672000000))) $
+                constraint "p1 is in range" (const (p1 `SGt` (SConst 0))) $
+                constraint "p1 is in range" (const (p1 `SLt` (SConst 1000))) $
+                constraint "p2 is in range" (const (p2 `SGt` (SConst 0))) $
+                constraint "p2 is in range" (const (p2 `SLt` (SConst 1000))) $
                 runModel steps initialState
     solved <- SMT.solveTrace trace
     putStrLn $ renderSolvedTrace $ solved

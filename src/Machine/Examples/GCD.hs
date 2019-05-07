@@ -45,11 +45,11 @@ gcdExample = do
         mem = initialiseMemory [(0, x), (1, y)]
         initialState = boot gcdProgram mem
         trace =
-                constraint overflowSet $
-                constraint (const (x `SGt` (SConst 20))) $
-                constraint (const (x `SLt` (SConst 30))) $
-                constraint (const (y `SGt` (SConst 0)))  $
-                constraint (const (y `SLt` (SConst 10))) $
+                constraint "no overflow" overflowSet $
+                constraint "x is in range" (const (x `SGt` (SConst 20))) $
+                constraint "x is in range" (const (x `SLt` (SConst 30))) $
+                constraint "y is in range" (const (y `SGt` (SConst 0)))  $
+                constraint "y is in range" (const (y `SLt` (SConst 10))) $
                 -- constraint halted $
                 runModel steps initialState
     -- print gcdProgram

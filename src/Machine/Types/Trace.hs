@@ -49,8 +49,8 @@ mkTrace node children = Trace $ Tree.Node node (map unTrace children)
 
 -- | Impose a path constraint on every state in the trace.
 --   Useful for checking whole program properties, e.g. the absence of overflow
-constraint :: (State -> Sym Bool) -> Trace State -> Trace State
-constraint constr = fmap (\s -> appendConstraints [constr s] s)
+constraint :: Label -> (State -> Sym Bool) -> Trace State -> Trace State
+constraint label constr = fmap (\s -> appendConstraints [(label, constr s)] s)
 
 traceDepth :: Trace s -> Int
 traceDepth = length . Tree.flatten . unTrace

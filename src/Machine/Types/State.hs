@@ -1,10 +1,13 @@
 module Machine.Types.State where
 
+import           Data.Bifunctor
 import qualified Data.Map.Strict as Map
 import qualified Data.SBV        as SBV
 import           Machine.Types
 import           Machine.Decode
 import           Machine.Encode
+
+type Label = String
 
 -- | The state of symbolic computation
 data State = State { registers         :: Map.Map Register (Sym Value)
@@ -14,10 +17,10 @@ data State = State { registers         :: Map.Map Register (Sym Value)
                    , memory :: Map.Map MemoryAddress (Sym Value)
                    , program :: Program
                    , clock :: Clock
-                   , pathConstraintList :: [Sym Bool]
+                   , pathConstraintList :: [(Label, Sym Bool)]
                    }
 
-appendConstraints :: [Sym Bool] -> State -> State
+appendConstraints :: [(Label, Sym Bool)] -> State -> State
 appendConstraints cs s =
     let cs' = cs ++ pathConstraintList s
     in s { pathConstraintList = cs' }
@@ -32,7 +35,7 @@ renderState state =
   "Memory: " <> show (filter ((/= SConst 0) . snd) . Map.toList $ memory state) <> "\n" <>
   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n"
 
-renderPathConstraints :: [Sym Bool] -> String
+renderPathConstraints :: [(Label, Sym Bool)] -> String
 renderPathConstraints xs = foldr (\x acc -> "  && " <> show x <> "\n" <> acc) "" xs
 
 emptyRegisters :: Map.Map Register (Sym Value)
@@ -64,7 +67,7 @@ foldConstantsInState s@(State regs ic ir flags mem prog clock pathConstraints) =
   let regs'            = Map.map tryFoldConstant regs
       flags'           = Map.map tryFoldConstant flags
       mem'             = Map.map tryFoldConstant mem
-      pathConstraints' = map tryFoldConstant pathConstraints
+      pathConstraints' = map (second tryFoldConstant) pathConstraints
   in  State regs'
             ic
             ir
@@ -98,7 +101,7 @@ renderSolvedState (SolvedState state c) =
   "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
   "Regs: " <> show (Map.toList $ registers state) <> "\n" <>
   "Memory: " <> show (filter ((not . nonZero) . snd) . Map.toList $ memory state) <> "\n" <>
-  "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
+  "Flags: " <> show (filter ((/= Overflow) . fst) . Map.toList $ flags state) <> "\n" <>
   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
   "Solved Values: " <> renderSMTResult c
 
