@@ -45,7 +45,7 @@ sumArrayLowLevel =
     , Instruction (Add R1 const_one)
     , Instruction (Store R1 pointer)
     -- , Instruction (loop <- label)
-    , Instruction (Sub R1 const_two)
+    , Instruction (Sub R1 const_one)
     , Instruction (JumpZero 8)
     , Instruction (LoadMI R2 pointer)
     , Instruction (Add R2 sum)
