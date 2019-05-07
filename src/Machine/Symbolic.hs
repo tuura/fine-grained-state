@@ -86,19 +86,6 @@ pipeline state =
             _ -> error
                 "piplineStep: impossible happened: fetchInstruction returned not a singleton."
 
--- | Retrieve all leaf-nodes of the symbolic expression
-unsafeLeafs :: Sym a -> [Sym a]
-unsafeLeafs = go []
-    where go :: [Sym a] -> Sym a -> [Sym a]
-          go xs v = case v of
-             (SConst x) -> v:xs
-             (SAdd p q) -> go (go xs p) q
-
--- | Assume that a symbolic expression only contains constant leafs and fold it into a single
---   constant leaf
-unsafeFoldSConst :: Sym Value -> Sym Value
-unsafeFoldSConst = SConst . foldr (\(SConst x) acc -> x + acc) 0 . unsafeLeafs
-
 runModelM :: MonadState NodeId m => Int -> State -> m (Trace State)
 runModelM steps state = do
     modify (+ 1)

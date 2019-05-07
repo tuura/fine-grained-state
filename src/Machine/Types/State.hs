@@ -57,6 +57,23 @@ boot prog mem = State { registers = emptyRegisters
                       }
 
 ----------------------------------------------------------------------------------------------------
+-- | Constant-fold all expressions which only contain literals in their leafs
+foldConstantsInState :: State -> State
+foldConstantsInState s@(State regs ic ir flags mem prog clock pathConstraints) =
+  let regs'            = Map.map tryFoldConstant regs
+      flags'           = Map.map tryFoldConstant flags
+      mem'             = Map.map tryFoldConstant mem
+      pathConstraints' = map tryFoldConstant pathConstraints
+  in  State regs'
+            ic
+            ir
+            flags'
+            mem'
+            prog
+            clock
+            pathConstraints
+
+----------------------------------------------------------------------------------------------------
 
 data SolvedState = SolvedState State SBV.SMTResult
 

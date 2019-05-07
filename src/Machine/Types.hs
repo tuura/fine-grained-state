@@ -140,3 +140,36 @@ instance Ord (Sym Value) where
 instance Bounded a => Bounded (Sym a) where
   minBound = SConst minBound
   maxBound = SConst maxBound
+
+nonZero :: Sym Value -> Bool
+nonZero = \case
+  (SConst 0) -> True
+  _          -> False
+
+-- | Try to perform constant folding and get the resulting value. Return 'Nothing' on
+--   encounter of a symbolic variable.
+getValue :: Sym a -> Maybe a
+getValue = \case
+    (SAny   _) -> Nothing
+    (SConst x) -> Just x
+    (SAdd p q) -> (+)           <$> getValue p <*> getValue q
+    (SSub p q) -> (-)           <$> getValue p <*> getValue q
+    (SMul p q) -> (*)           <$> getValue p <*> getValue q
+    (SDiv p q) -> (Prelude.div) <$> getValue p <*> getValue q
+    (SMod p q) -> (Prelude.mod) <$> getValue p <*> getValue q
+    (SAbs x  ) -> Prelude.abs   <$> getValue x
+    (SAnd p q) -> (&&)          <$> getValue p <*> getValue q
+    (SOr  p q) -> (||)          <$> getValue p <*> getValue q
+    (SNot x  ) -> not           <$> getValue x
+    (SEq  p q) -> (==)          <$> getValue p <*> getValue q
+    (SGt  p q) -> (>)           <$> getValue p <*> getValue q
+    (SLt  p q) -> (<)           <$> getValue p <*> getValue q
+
+-- | Constant-fold the expression if it only contains 'SConst' leafs; return the
+--   unchanged expression otherwise.
+tryFoldConstant :: Sym a -> Sym a
+tryFoldConstant x =
+  let maybeVal = getValue x
+  in case maybeVal of
+          Just val -> SConst val
+          Nothing  -> x

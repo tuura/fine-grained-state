@@ -33,6 +33,9 @@ instance Foldable Trace where
 instance Traversable Trace where
     traverse f (Trace tree) = Trace <$> traverse (\(Node n s) -> Node n <$> f s) tree
 
+foldConstantsInTrace :: Trace State -> Trace State
+foldConstantsInTrace = fmap foldConstantsInState
+
 renderTrace :: Trace State -> String
 renderTrace (Trace tree) =
     Tree.drawTree (renderNode <$> tree)
