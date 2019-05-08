@@ -61,9 +61,8 @@ sumArrayLowLevel =
 
 reg2HasResult :: State -> Sym Bool
 reg2HasResult s =
-    case (Map.!) (registers s) R2 of
-        (SAdd (SAny 1) (SAdd (SAny 2) (SAdd (SAny 3) (SConst 0)))) -> SConst True
-        _ -> SConst False
+    (Map.!) (registers s) R2 `SEq`
+        (SAdd (SAny 1) (SAdd (SAny 2) (SAdd (SAny 3) (SConst 0))))
 
 sumExample :: Int -> IO ()
 sumExample arraySize = do
@@ -77,7 +76,7 @@ sumExample arraySize = do
                                 [(254, SConst 1), (255, SConst 2)])
         initialState = boot sumArrayLowLevel mem
         trace =
-                -- constraint overflowSet $
+                constraint "no overflow" (SNot . overflowSet) $
                 constraint "Halted" halted $
                 constraint "ResultIsCorrect" reg2HasResult $
                 -- constraint (const (x `SGt` (SConst 20))) $
