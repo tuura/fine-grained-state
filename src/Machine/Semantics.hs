@@ -145,10 +145,11 @@ mod reg addr = \read write -> void $
               in  SOr o1
                       (SAnd o2 o3)
 
-abs :: Register -> FS Functor ()
+abs :: Register -> FS Applicative ()
 abs reg = \read write -> void $
     let result = SAbs <$> read (Reg reg)
-    in  write (Reg reg) result
+        overflow x = SLt <$> x <*> pure (SConst 0)
+    in  write (F Overflow) (overflow $ write (Reg reg) result)
 
 -- | Unconditional jump.
 --   Functor.
