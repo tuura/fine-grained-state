@@ -7,7 +7,10 @@ import           Machine.Types.Trace
 import           Machine.Symbolic
 import qualified Machine.SMT      as SMT
 import           Machine.Encode
-import Machine.Examples.Common
+import qualified Machine.Types.Trace.Viz as Viz
+import           Machine.Examples.Common
+import qualified Algebra.Graph            as G
+
 
 -- sumArrayLowLevel :: Script
 -- sumArrayLowLevel = do
@@ -57,6 +60,7 @@ sumArrayLowLevel =
     , Instruction (Jump (-9))
     , Instruction (Load R0 sum)
     , Instruction (Halt)
+    , Instruction (Halt)
     ]
 
 reg2HasResult :: State -> Sym Bool
@@ -78,7 +82,7 @@ sumExample arraySize = do
         trace =
                 constraint "no overflow" (SNot . overflowSet) $
                 constraint "Halted" halted $
-                constraint "ResultIsCorrect" reg2HasResult $
+                -- constraint "ResultIsCorrect" reg2HasResult $
                 -- constraint (const (x `SGt` (SConst 20))) $
                 -- constraint (const (x `SLt` (SConst 30))) $
                 -- constraint (const (y `SGt` (SConst 0)))  $
@@ -86,6 +90,8 @@ sumExample arraySize = do
                 runModel steps initialState
     -- putStrLn $ renderTrace trace
     -- putStrLn $ renderTrace (fmap foldConstantsInState trace)
-    solved <- SMT.solveTrace (foldConstantsInTrace trace)
-    -- solved <- SMT.solveTrace (trace)
-    putStrLn $ renderSolvedTrace $ solved
+    writeFile "trace.txt" $ (\(vs, es) -> vs <> "\n\n\n" <> es) $ Viz.renderDagrejs (Viz.mkGTrace trace)
+    -- print $ Viz.renderDagrejs $ Viz.mkGTrace trace
+    -- solved <- SMT.solveTrace (foldConstantsInTrace trace)
+    -- -- solved <- SMT.solveTrace (trace)
+    -- putStrLn $ renderSolvedTrace $ solved

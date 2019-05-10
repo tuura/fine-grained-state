@@ -1,0 +1,206 @@
+"(4,JumpZero 6)": { 
+    description: `<pre>IC: 4
+IR: Sub R0 255
+Flags: [(Zero,((val_0 % val_1) - 0)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(5,Load R0 0)": { 
+    description: `<pre>IC: 5
+IR: JumpZero 6
+Flags: [(Zero,((val_0 % val_1) - 0)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬(((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(11,Halt)": { 
+    description: `<pre>IC: 11
+IR: JumpZero 6
+Flags: [(Zero,((val_0 % val_1) - 0)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && (((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(12,Halt)": { 
+    description: `<pre>IC: 12
+IR: Halt
+Flags: [(Zero,((val_0 % val_1) - 0)),(Overflow,0),(Halted,1)]
+Path Constraints: 
+ && (((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(4,JumpZero 6)": { 
+    description: `<pre>IC: 4
+IR: Sub R0 255
+Flags: [(Zero,((val_1 % (val_0 % val_1)) - 0)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬(((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(4,JumpZero 6)": { 
+    description: `<pre>IC: 4
+IR: Sub R0 255
+Flags: [(Zero,(val_1 - 0)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+
+</pre>`
+},"(5,Load R0 0)": { 
+    description: `<pre>IC: 5
+IR: JumpZero 6
+Flags: [(Zero,(val_1 - 0)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(11,Halt)": { 
+    description: `<pre>IC: 11
+IR: JumpZero 6
+Flags: [(Zero,(val_1 - 0)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ((val_1 - 0) == 0)
+
+</pre>`
+},"(12,Halt)": { 
+    description: `<pre>IC: 12
+IR: Halt
+Flags: [(Zero,(val_1 - 0)),(Overflow,0),(Halted,1)]
+Path Constraints: 
+ && ((val_1 - 0) == 0)
+
+</pre>`
+},"(7,Load R1 1)": { 
+    description: `<pre>IC: 7
+IR: Mod R0 1
+Flags: [(Zero,(val_0 % val_1)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(3,Sub R0 255)": { 
+    description: `<pre>IC: 3
+IR: Jump (-8)
+Flags: [(Zero,(val_0 % val_1)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(8,Store R0 1)": { 
+    description: `<pre>IC: 8
+IR: Load R1 1
+Flags: [(Zero,(val_0 % val_1)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(9,Store R1 0)": { 
+    description: `<pre>IC: 9
+IR: Store R0 1
+Flags: [(Zero,(val_0 % val_1)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(10,Jump (-8))": { 
+    description: `<pre>IC: 10
+IR: Store R1 0
+Flags: [(Zero,(val_0 % val_1)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(3,Sub R0 255)": { 
+    description: `<pre>IC: 3
+IR: Jump (-8)
+Flags: [(Zero,(val_1 % (val_0 % val_1))),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬(((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(8,Store R0 1)": { 
+    description: `<pre>IC: 8
+IR: Load R1 1
+Flags: [(Zero,(val_1 % (val_0 % val_1))),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬(((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(9,Store R1 0)": { 
+    description: `<pre>IC: 9
+IR: Store R0 1
+Flags: [(Zero,(val_1 % (val_0 % val_1))),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬(((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(10,Jump (-8))": { 
+    description: `<pre>IC: 10
+IR: Store R1 0
+Flags: [(Zero,(val_1 % (val_0 % val_1))),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬(((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(7,Load R1 1)": { 
+    description: `<pre>IC: 7
+IR: Mod R0 1
+Flags: [(Zero,(val_1 % (val_0 % val_1))),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬(((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(0,Set R0 0)": { 
+    description: `<pre>IC: 0
+IR: Jump 0
+Flags: [(Zero,0),(Overflow,0),(Halted,0)]
+Path Constraints: 
+
+</pre>`
+},"(1,Store R0 255)": { 
+    description: `<pre>IC: 1
+IR: Set R0 0
+Flags: [(Zero,0),(Overflow,0),(Halted,0)]
+Path Constraints: 
+
+</pre>`
+},"(2,Load R0 1)": { 
+    description: `<pre>IC: 2
+IR: Store R0 255
+Flags: [(Zero,0),(Overflow,0),(Halted,0)]
+Path Constraints: 
+
+</pre>`
+},"(6,Mod R0 1)": { 
+    description: `<pre>IC: 6
+IR: Load R0 0
+Flags: [(Zero,(val_1 - 0)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},"(3,Sub R0 255)": { 
+    description: `<pre>IC: 3
+IR: Load R0 1
+Flags: [(Zero,0),(Overflow,0),(Halted,0)]
+Path Constraints: 
+
+</pre>`
+},"(6,Mod R0 1)": { 
+    description: `<pre>IC: 6
+IR: Load R0 0
+Flags: [(Zero,((val_0 % val_1) - 0)),(Overflow,0),(Halted,0)]
+Path Constraints: 
+ && ¬(((val_0 % val_1) - 0) == 0)
+ && ¬((val_1 - 0) == 0)
+
+</pre>`
+},

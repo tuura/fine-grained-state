@@ -7,11 +7,20 @@ import           Machine.Types.State
 import           Machine.Decode
 import           Machine.Encode
 
-type NodeId = Word16
+type NodeId = Integer
 
 data Node s = Node { nodeId     :: NodeId
                    , nodeBody   :: s
                    } deriving Functor
+
+instance Eq (Node s) where
+    (Node x _) == (Node y _) = x == y
+
+instance Ord (Node s) where
+    (Node x _) <= (Node y _) = x <= y
+
+instance Show (Node s) where
+    show (Node nId _) = show nId
 
 renderNode :: Node State -> String
 renderNode node =

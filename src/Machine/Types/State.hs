@@ -32,8 +32,10 @@ renderState state =
   "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
   "Registers: " <> show (Map.toList $ registers state) <> "\n" <>
   "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
-  "Memory: " <> show (filter ((/= SConst 0) . snd) . Map.toList $ memory state) <> "\n" <>
+  "Memory: " <> show (filter (not . constZero . snd) . Map.toList $ memory state) <> "\n" <>
   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n"
+  where constZero (SConst 0) = True
+        constZero  _         = False
 
 renderPathConstraints :: [(Label, Sym Bool)] -> String
 renderPathConstraints xs = foldr (\x acc -> "  && " <> show x <> "\n" <> acc) "" xs

@@ -17,10 +17,13 @@ dependencies:
 - bifunctors
 - mtl
 - containers
+- algebraic-graphs
 - selective
 - sbv
 - units
 - units-defs
+- text
+- pretty-simple
 
 default-extensions:
 - TypeFamilies
