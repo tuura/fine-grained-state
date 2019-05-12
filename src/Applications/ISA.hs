@@ -106,7 +106,7 @@ instructionSemantics' (Instruction i) read write = case i of
 
 -- | Halt the execution.
 --   Applicative.
-halt :: FS Applicative ()
+halt :: FS Applicative MachineKey ()
 halt read write = void $ do
     write (F Halted) (pure 1)
 
