@@ -12,6 +12,8 @@ import           Machine.Examples.Common
 import qualified Algebra.Graph            as G
 import           Text.Pretty.Simple (pPrint)
 import qualified Data.SBV        as SBV
+import qualified Data.List       as List
+import           Data.Maybe (fromJust)
 
 
 -- sumArrayLowLevel :: Script
@@ -81,15 +83,12 @@ anySym = foldr SOr (SConst False)
 collect :: (State -> Sym Bool) -> Path (Node State) -> Sym Bool
 collect predicate path =
     -- foldr SAnd
-    let conds = map (\s -> predicate (nodeBody s)
-                            `SAnd`
-                          (allSym . map snd $ pathConstraintList (nodeBody s))
-                    ) path
-    in anySym conds
+    let conds = map (predicate . nodeBody) path
+    in  allSym conds
 
-sumExample :: Int -> IO ()
-sumExample arraySize = do
-    let steps = 100 -- is enough for (sum 3)
+sumExampleIO :: Int -> IO ()
+sumExampleIO arraySize = do
+    let steps = 100 -- 40 is enough for (sum 3)
     -- 54 give an error: *** Exception: Map.!: given key is not an element in the map
     -- let names = map (("x" ++) . show) [1..arraySize]
     let summands = map SAny [1..arraySize]
@@ -100,19 +99,24 @@ sumExample arraySize = do
                                 [(0, SConst . fromIntegral $ arraySize)] ++
                                 [(254, SConst 1), (255, SConst 2)])
         initialState = boot sumArrayLowLevel mem
-        trace =
-                -- constraint "no overflow" (SNot . overflowSet) $
+        trace = constraint "no overflow" (SNot . overflowSet) $
                 constraint "Halted" halted $
-                -- constraint "Summands are in range" (const (allSym $ map constr summands)) $
+                constraint "Summands are in range" (const (allSym $ map constr summands)) $
                 -- constraint "ResultIsCorrect" reg2HasResult $
                 -- constraint (const (x `SGt` (SConst 0))) $
                 -- constraint (const (x `SLt` (SConst 1000))) $
                 -- constraint (const (y `SGt` (SConst 0)))  $
                 -- constraint (const (y `SLt` (SConst 1000))) $
                 runModel steps initialState
-    putStrLn $ renderTrace (fmap foldConstantsInState trace)
+    -- putStrLn $ renderTrace (fmap foldConstantsInState trace)
     let ps = paths (unTrace trace)
-        overflows = map (collect overflowSet) ps
+        overflows =
+            -- map ((allSym $ map constr summands) `SAnd`) $
+            map tryReduce $
+            map (collect (\s ->
+                    tryFoldConstant $ fromJust $ (List.lookup) "no overflow" $
+                        pathConstraintList s)
+                ) ps
         overflowVCs = map SMT.toSMT $ map (:[]) $ overflows
     satResults <- mapM (SBV.satWith SMT.prover) overflowVCs
 
@@ -124,7 +128,7 @@ sumExample arraySize = do
 
     -- mapM_ print (zip overflows satResults)
     -- mapM_ print (satResults)
-    -- mapM_ (\x -> print x >> putStrLn "---") overflows
+    mapM_ (\x -> print x >> putStrLn "---") $ zip satResults overflows
 
     -- mapM_ (\x -> print x >> putStrLn "---") ()
     -- putStrLn $ renderTrace (fmap foldConstantsInState trace)
@@ -135,3 +139,49 @@ sumExample arraySize = do
     -- let ls = map renderSolvedNode $ getSatStates solved
     -- mapM_ putStrLn ls
     -- putStrLn $ renderSolvedTrace $ solved
+
+sumExample :: Int -> IO (Sym Bool)
+sumExample arraySize = do
+    let steps = 100 -- 40 is enough for (sum 3)
+    -- 54 give an error: *** Exception: Map.!: given key is not an element in the map
+    -- let names = map (("x" ++) . show) [1..arraySize]
+    let summands = map SAny [1..arraySize]
+    -- constrain xs to be in [0, 1000]
+    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
+    -- sequence_ (zipWith ($) (repeat constr) summands)
+    let mem = initialiseMemory (zip [2..] summands ++
+                                [(0, SConst . fromIntegral $ arraySize)] ++
+                                [(254, SConst 1), (255, SConst 2)])
+        initialState = boot sumArrayLowLevel mem
+        trace = constraint "no overflow" (SNot . overflowSet) $
+                constraint "Halted" halted $
+                -- constraint "Summands are in range" (const (allSym $ map constr summands)) $
+                -- constraint "ResultIsCorrect" reg2HasResult $
+                -- constraint (const (x `SGt` (SConst 0))) $
+                -- constraint (const (x `SLt` (SConst 1000))) $
+                -- constraint (const (y `SGt` (SConst 0)))  $
+                -- constraint (const (y `SLt` (SConst 1000))) $
+                runModel steps initialState
+    -- putStrLn $ renderTrace (fmap foldConstantsInState trace)
+    let ps = paths (unTrace trace)
+        overflows =
+            -- map ((allSym $ map constr summands) `SAnd`) $
+            map (last . take 1000 . iterate (tryFoldConstant . tryReduce)) $
+            map (collect (\s ->
+                    tryFoldConstant $ fromJust $ List.lookup "no overflow" $
+                        pathConstraintList s)
+                ) ps
+        overflowVCs = map SMT.toSMT $ map (:[]) $ overflows
+    satResults <- mapM (SBV.satWith SMT.prover) overflowVCs
+
+    solved <- SMT.solveTrace (trace)
+    print (length ps)
+    -- let ls = map renderSolvedNode $ getSatStates solved
+    -- mapM_ putStrLn ls
+    -- putStrLn $ renderSolvedTrace $ solved
+
+    -- mapM_ print (zip overflows satResults)
+    -- mapM_ print (satResults)
+    mapM_ (\x -> print x >> putStrLn "---") $ zip satResults overflows
+
+    pure $ head overflows

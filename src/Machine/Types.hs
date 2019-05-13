@@ -112,6 +112,8 @@ data Sym a where
     SOr    :: Sym Bool -> Sym Bool -> Sym Bool
     SNot   :: Sym Bool -> Sym Bool
 
+-- deriving instance Show a => Show (Sym a)
+
 instance Show a => Show (Sym a) where
     show (SAdd x y)   = "(" <> show x <> " + " <> show y <> ")"
     show (SSub x y)   = "(" <> show x <> " - " <> show y <> ")"
@@ -173,3 +175,34 @@ tryFoldConstant x =
   in case maybeVal of
           Just val -> SConst val
           Nothing  -> x
+
+tryReduce :: Sym a -> Sym a
+tryReduce = \case
+    SNot x -> SNot (tryReduce x)
+
+    -- 0 + y = y
+    (SAdd (SConst 0) y) -> tryReduce y
+    -- x + 0 = x
+    (SAdd x (SConst 0)) -> tryReduce x
+    (SAdd x y) -> tryReduce x `SAdd` tryReduce y
+    -- x - 0 = x
+    (SSub x (SConst 0)) -> tryReduce x
+    (SSub x y) -> tryReduce x `SSub` tryReduce y
+    -- T && y = y
+    (SAnd (SConst True) y) -> tryReduce y
+    -- x && T = x
+    (SAnd x (SConst True)) -> tryReduce x
+    (SAnd x y            ) -> tryReduce x `SAnd` tryReduce y
+    -- F || y = y
+    (SOr (SConst False) y) -> tryReduce y
+    -- x || F = x
+    (SOr x (SConst False)) -> tryReduce x
+    (SOr x y) -> tryReduce x `SOr` tryReduce y
+
+    (SEq (SConst 0) (SConst 0)) -> SConst True
+    (SEq x y) -> tryReduce x `SEq` tryReduce y
+    (SGt (SConst 0) (SConst 0)) -> SConst True
+    (SGt x y) -> tryReduce x `SGt` tryReduce y
+    (SLt (SConst 0) (SConst 0)) -> SConst True
+    (SLt x y) -> tryReduce x `SLt` tryReduce y
+    s -> s

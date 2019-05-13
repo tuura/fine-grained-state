@@ -37,7 +37,7 @@ gcdProgram = zip [0..] $ map encode
 
 gcdExample :: IO ()
 gcdExample = do
-    let steps = 15
+    let steps = 200
         -- x = SConst 2
         -- y = SConst 3
         x = SAny 0
@@ -55,8 +55,11 @@ gcdExample = do
     -- print gcdProgram
     -- putStrLn $ Tree.drawTree $ fmap renderState $ trace
     -- putStrLn $ unlines $ fmap renderState $ subsetTrace halted trace
-    s <- SMT.solveTrace trace
+
+    -- s <- SMT.solveTrace trace
     putStrLn $ "Trace depth: " ++ show (traceDepth trace)
-    putStrLn $ renderSolvedTrace $ s
+    let ps = paths (unTrace trace)
+    putStrLn $ "Path in trace: " ++ show (length ps)
+    -- putStrLn $ renderSolvedTrace $ s
     -- putStrLn . unlines . fmap SMT.renderSolvedState $ queryTrace s
     -- print $ map SMT.renderSMTResult . map (\(SMT.SolvedState x y) -> y) $ queryTrace s
