@@ -1,8 +1,10 @@
--- This file has been generated from package.yaml by hpack version 0.28.2.
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 074b81b6c41c8fdd3793489f6037eace00890dd4a6a474369e478b750c6387dc
+-- hash: 33f55dff5e9eb463355a36b4e9bff1f7a6eba159964ee065b25b1eeec94015f1
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -15,10 +17,9 @@ copyright:      2019 Georgy Lukyanov
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
-cabal-version:  >= 1.10
 extra-source-files:
-    ChangeLog.md
     README.md
+    ChangeLog.md
 
 source-repository head
   type: git

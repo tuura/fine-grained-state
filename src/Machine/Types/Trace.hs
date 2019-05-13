@@ -64,6 +64,30 @@ constraint label constr = fmap (\s -> appendConstraints [(label, constr s)] s)
 traceDepth :: Trace s -> Int
 traceDepth = length . Tree.flatten . unTrace
 
-subsetTrace :: (s -> Bool) -> Trace s -> [s]
-subsetTrace property =
-    foldMap (\s -> if property s then [s] else [])
+subsetTrace :: (s -> Bool) -> Trace s -> [Node s]
+subsetTrace property (Trace tree) =
+    foldMap (\s -> if property (nodeBody s) then [s] else []) tree
+
+getSatStates :: Trace SolvedState -> [Node SolvedState]
+getSatStates = subsetTrace isSatState
+
+type Path s = [s]
+
+-- | Enumerate all paths in a rose tree
+paths :: Tree.Tree a -> [Path a]
+paths = \case
+    (Tree.Node payload []) -> [[payload]]
+    (Tree.Node payload xs) -> concat [map (payload:) (paths t) | t <- xs]
+
+exampleTree :: Tree.Tree Int
+exampleTree =
+    Tree.Node 1
+        [ Tree.Node 2 [ Tree.Node 21 []
+                      , Tree.Node 22 []
+                      , Tree.Node 23 []
+                      ]
+        , Tree.Node 3 [ Tree.Node 31 []
+                      , Tree.Node 32 []
+                      ]
+         ]
+

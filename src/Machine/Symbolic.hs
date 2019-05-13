@@ -35,8 +35,12 @@ whenSym :: SymEngine (Sym Bool) -> SymEngine () -> SymEngine ()
 whenSym cond comp = -- select (bool (Right ()) (Left ()) <$> x) (const <$> y)
     SymEngine $ \s -> do
         a@(evalCond, s') <- runSymEngine cond s
-        b@(compRes, s'') <- runSymEngine comp s'
-        (f a (snd b))
+        case (tryFoldConstant evalCond) of
+                SConst True -> runSymEngine comp s'
+                SConst False -> pure ((), s')
+                _ -> do
+                    b@(compRes, s'') <- runSymEngine comp s'
+                    (f a (snd b))
         -- pure ((), appendConstraints [evalCond] s')
         -- pure ((), appendConstraints [(SNot evalCond)] s'')
     -- concat [f a (snd b) | a <- runSymEngine cond s, b <- runSymEngine comp (snd a)]
@@ -45,6 +49,22 @@ whenSym cond comp = -- select (bool (Right ()) (Left ()) <$> x) (const <$> y)
         f (b, sNoExec) sOnExec =
             [ ((), appendConstraints [("", b)] sOnExec)
             , ((), appendConstraints [("", SNot b)] sNoExec)]
+
+-- -- | Conditionally perform an effect.
+-- whenSym :: SymEngine (Sym Bool) -> SymEngine () -> SymEngine ()
+-- whenSym cond comp = -- select (bool (Right ()) (Left ()) <$> x) (const <$> y)
+--     SymEngine $ \s -> do
+--         a@(evalCond, s') <- runSymEngine cond s
+--         b@(compRes, s'') <- runSymEngine comp s'
+--         (f a (snd b))
+--         -- pure ((), appendConstraints [evalCond] s')
+--         -- pure ((), appendConstraints [(SNot evalCond)] s'')
+--     -- concat [f a (snd b) | a <- runSymEngine cond s, b <- runSymEngine comp (snd a)]
+--     where
+--         f :: (Sym Bool, State) -> State -> [((), State)]
+--         f (b, sNoExec) sOnExec =
+--             [ ((), appendConstraints [("", b)] sOnExec)
+--             , ((), appendConstraints [("", SNot b)] sNoExec)]
 
 instance Selective SymEngine where
     select = selectM

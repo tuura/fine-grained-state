@@ -10,6 +10,8 @@ import           Machine.Encode
 import qualified Machine.Types.Trace.Viz as Viz
 import           Machine.Examples.Common
 import qualified Algebra.Graph            as G
+import           Text.Pretty.Simple (pPrint)
+import qualified Data.SBV        as SBV
 
 
 -- sumArrayLowLevel :: Script
@@ -61,6 +63,8 @@ sumArrayLowLevel =
     , Instruction (Load R0 sum)
     , Instruction (Halt)
     , Instruction (Halt)
+    , Instruction (Halt)
+    , Instruction (Halt)
     ]
 
 reg2HasResult :: State -> Sym Bool
@@ -68,30 +72,66 @@ reg2HasResult s =
     (Map.!) (registers s) R2 `SEq`
         (SAdd (SAny 1) (SAdd (SAny 2) (SAdd (SAny 3) (SConst 0))))
 
+allSym :: [Sym Bool] -> Sym Bool
+allSym = foldr SAnd (SConst True)
+
+anySym :: [Sym Bool] -> Sym Bool
+anySym = foldr SOr (SConst False)
+
+collect :: (State -> Sym Bool) -> Path (Node State) -> Sym Bool
+collect predicate path =
+    -- foldr SAnd
+    let conds = map (\s -> predicate (nodeBody s)
+                            `SAnd`
+                          (allSym . map snd $ pathConstraintList (nodeBody s))
+                    ) path
+    in anySym conds
+
 sumExample :: Int -> IO ()
 sumExample arraySize = do
-    let steps = 40
-    let names = map (("x" ++) . show) [1..arraySize]
-    let summands = map SAny [1..length names]
+    let steps = 100 -- is enough for (sum 3)
+    -- 54 give an error: *** Exception: Map.!: given key is not an element in the map
+    -- let names = map (("x" ++) . show) [1..arraySize]
+    let summands = map SAny [1..arraySize]
     -- constrain xs to be in [0, 1000]
+    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
     -- sequence_ (zipWith ($) (repeat constr) summands)
     let mem = initialiseMemory (zip [2..] summands ++
                                 [(0, SConst . fromIntegral $ arraySize)] ++
                                 [(254, SConst 1), (255, SConst 2)])
         initialState = boot sumArrayLowLevel mem
         trace =
-                constraint "no overflow" (SNot . overflowSet) $
+                -- constraint "no overflow" (SNot . overflowSet) $
                 constraint "Halted" halted $
+                -- constraint "Summands are in range" (const (allSym $ map constr summands)) $
                 -- constraint "ResultIsCorrect" reg2HasResult $
-                -- constraint (const (x `SGt` (SConst 20))) $
-                -- constraint (const (x `SLt` (SConst 30))) $
+                -- constraint (const (x `SGt` (SConst 0))) $
+                -- constraint (const (x `SLt` (SConst 1000))) $
                 -- constraint (const (y `SGt` (SConst 0)))  $
-                -- constraint (const (y `SLt` (SConst 10))) $
+                -- constraint (const (y `SLt` (SConst 1000))) $
                 runModel steps initialState
-    -- putStrLn $ renderTrace trace
+    putStrLn $ renderTrace (fmap foldConstantsInState trace)
+    let ps = paths (unTrace trace)
+        overflows = map (collect overflowSet) ps
+        overflowVCs = map SMT.toSMT $ map (:[]) $ overflows
+    satResults <- mapM (SBV.satWith SMT.prover) overflowVCs
+
+    solved <- SMT.solveTrace (trace)
+    print (length ps)
+    -- let ls = map renderSolvedNode $ getSatStates solved
+    -- mapM_ putStrLn ls
+    -- putStrLn $ renderSolvedTrace $ solved
+
+    -- mapM_ print (zip overflows satResults)
+    -- mapM_ print (satResults)
+    -- mapM_ (\x -> print x >> putStrLn "---") overflows
+
+    -- mapM_ (\x -> print x >> putStrLn "---") ()
     -- putStrLn $ renderTrace (fmap foldConstantsInState trace)
-    writeFile "trace.txt" $ (\(vs, es) -> vs <> "\n\n\n" <> es) $ Viz.renderDagrejs (Viz.mkGTrace trace)
+    -- writeFile "trace.txt" $ (\(vs, es) -> vs <> "\n\n\n" <> es) $ Viz.renderDagrejs (Viz.mkGTrace trace)
     -- print $ Viz.renderDagrejs $ Viz.mkGTrace trace
     -- solved <- SMT.solveTrace (foldConstantsInTrace trace)
-    -- -- solved <- SMT.solveTrace (trace)
+    -- solved <- SMT.solveTrace (trace)
+    -- let ls = map renderSolvedNode $ getSatStates solved
+    -- mapM_ putStrLn ls
     -- putStrLn $ renderSolvedTrace $ solved

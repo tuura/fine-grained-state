@@ -83,6 +83,10 @@ foldConstantsInState s@(State regs ic ir flags mem prog clock pathConstraints) =
 
 data SolvedState = SolvedState State SBV.SMTResult
 
+isSatState :: SolvedState -> Bool
+isSatState = \case (SolvedState s (SBV.Satisfiable _ _)) -> True
+                   _                                     -> False
+
 -- | Render the output of the SMT solver into a human-readable form
 renderSMTResult :: SBV.SMTResult -> String
 renderSMTResult (SBV.Unsatisfiable _ _) = "Unsatisfiable"
@@ -103,7 +107,8 @@ renderSolvedState (SolvedState state c) =
   "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
   "Regs: " <> show (Map.toList $ registers state) <> "\n" <>
   "Memory: " <> show (filter ((not . nonZero) . snd) . Map.toList $ memory state) <> "\n" <>
-  "Flags: " <> show (filter ((/= Overflow) . fst) . Map.toList $ flags state) <> "\n" <>
+  -- "Flags: " <> show (filter ((/= Overflow) . fst) . Map.toList $ flags state) <> "\n" <>
+  "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
   "Solved Values: " <> renderSMTResult c
 
