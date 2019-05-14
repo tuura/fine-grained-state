@@ -4,6 +4,7 @@ import qualified Data.Map         as Map
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
+import           Machine.Assembly
 import           Machine.Symbolic
 import qualified Machine.SMT      as SMT
 import           Machine.Encode
@@ -46,28 +47,51 @@ import           Data.Maybe (fromJust)
 sumArrayLowLevel :: Program
 sumArrayLowLevel =
     let { pointer = 0; sum = 253; const_one = 254; const_two = 255 } in -- ; pointer_store
-    zip [0..] $ map encode
-    [ Instruction (Set R0 0)
-    , Instruction (Store R0 sum)
-    , Instruction (Load R1 pointer)
-    , Instruction (Add R1 const_one)
-    , Instruction (Store R1 pointer)
-    -- , Instruction (loop <- label)
-    , Instruction (Sub R1 const_one)
-    , Instruction (JumpZero 8)
-    , Instruction (LoadMI R2 pointer)
-    , Instruction (Add R2 sum)
-    , Instruction (Store R2 sum)
-    , Instruction (Load R1 pointer)
-    , Instruction (Sub R1 const_one)
-    , Instruction (Store R1 pointer)
-    , Instruction (Jump (-9))
-    , Instruction (Load R0 sum)
-    , Instruction (Halt)
-    , Instruction (Halt)
-    , Instruction (Halt)
-    , Instruction (Halt)
-    ]
+    assemble $ do
+
+    ld_si R0 0
+    st R0 sum
+    ld R1 pointer
+    add R1 const_one
+    st R1 pointer
+    loop <- label
+    sub R1 const_one
+    jmpiZ 8
+    ldmi R2 pointer
+    add R2 sum
+    st R2 sum
+    ld R1 pointer
+    sub R1 const_one
+    st R1 pointer
+    goto loop
+    -- jmpi (-9)
+    ld R0 sum
+    halt
+    halt
+
+-- sumArrayLowLevel1 :: Program
+-- sumArrayLowLevel1 =
+--     let { pointer = 0; sum = 253; const_one = 254; const_two = 255 } in -- ; pointer_store
+--     zip [0..] $ map encode
+--     [ Instruction (Set R0 0)
+--     , Instruction (Store R0 sum)
+--     , Instruction (Load R1 pointer)
+--     , Instruction (Add R1 const_one)
+--     , Instruction (Store R1 pointer)
+--     -- , Instruction (loop <- label)
+--     , Instruction (Sub R1 const_one)
+--     , Instruction (JumpZero 8)
+--     , Instruction (LoadMI R2 pointer)
+--     , Instruction (Add R2 sum)
+--     , Instruction (Store R2 sum)
+--     , Instruction (Load R1 pointer)
+--     , Instruction (Sub R1 const_one)
+--     , Instruction (Store R1 pointer)
+--     , Instruction (Jump (-9))
+--     , Instruction (Load R0 sum)
+--     , Instruction (Halt)
+--     , Instruction (Halt)
+--     ]
 
 reg2HasResult :: State -> Sym Bool
 reg2HasResult s =

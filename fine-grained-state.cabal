@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 33f55dff5e9eb463355a36b4e9bff1f7a6eba159964ee065b25b1eeec94015f1
+-- hash: c4c14b316702f0e2b1703b229f8d2ce99f5bf3b5985ea31da68547c8c13dbd2e
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -28,6 +28,7 @@ source-repository head
 library
   exposed-modules:
       Machine
+      Machine.Assembly
       Machine.Decode
       Machine.Encode
       Machine.Examples.Add
