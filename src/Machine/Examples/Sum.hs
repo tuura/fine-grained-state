@@ -84,23 +84,24 @@ collect :: (State -> Sym Bool) -> Path (Node State) -> Sym Bool
 collect predicate path =
     -- foldr SAnd
     let conds = map (predicate . nodeBody) path
-    in  allSym conds
+    in  anySym conds
 
 sumExampleIO :: Int -> IO ()
 sumExampleIO arraySize = do
-    let steps = 100 -- 40 is enough for (sum 3)
+    let steps = 10000 -- 40 is enough for (sum 3)
     -- 54 give an error: *** Exception: Map.!: given key is not an element in the map
     -- let names = map (("x" ++) . show) [1..arraySize]
     let summands = map SAny [1..arraySize]
     -- constrain xs to be in [0, 1000]
-    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
+    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst $ 2 ^ 63 - 1)))
+    -- let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
     -- sequence_ (zipWith ($) (repeat constr) summands)
     let mem = initialiseMemory (zip [2..] summands ++
                                 [(0, SConst . fromIntegral $ arraySize)] ++
                                 [(254, SConst 1), (255, SConst 2)])
         initialState = boot sumArrayLowLevel mem
         trace = constraint "no overflow" (SNot . overflowSet) $
-                constraint "Halted" halted $
+                -- constraint "Halted" halted $
                 constraint "Summands are in range" (const (allSym $ map constr summands)) $
                 -- constraint "ResultIsCorrect" reg2HasResult $
                 -- constraint (const (x `SGt` (SConst 0))) $
@@ -111,11 +112,11 @@ sumExampleIO arraySize = do
     -- putStrLn $ renderTrace (fmap foldConstantsInState trace)
     let ps = paths (unTrace trace)
         overflows =
-            -- map ((allSym $ map constr summands) `SAnd`) $
-            map tryReduce $
+            -- map (\b -> (SNot . halted . nodeBody $ last (head ps)) `SAnd` b) $
+            map (last . take 1000 . iterate (tryFoldConstant . tryReduce)) $
+            map ((allSym $ map constr summands) `SAnd`) $
             map (collect (\s ->
-                    tryFoldConstant $ fromJust $ (List.lookup) "no overflow" $
-                        pathConstraintList s)
+                    (Map.!) (flags s) Overflow)
                 ) ps
         overflowVCs = map SMT.toSMT $ map (:[]) $ overflows
     satResults <- mapM (SBV.satWith SMT.prover) overflowVCs
@@ -123,12 +124,12 @@ sumExampleIO arraySize = do
     solved <- SMT.solveTrace (trace)
     print (length ps)
     -- let ls = map renderSolvedNode $ getSatStates solved
-    -- mapM_ putStrLn ls
+    -- mapM_ print ps
     -- putStrLn $ renderSolvedTrace $ solved
 
-    -- mapM_ print (zip overflows satResults)
+    mapM_ print (zip overflows satResults)
     -- mapM_ print (satResults)
-    mapM_ (\x -> print x >> putStrLn "---") $ zip satResults overflows
+    -- mapM_ (\x -> print x >> putStrLn "---") $ zip satResults overflows
 
     -- mapM_ (\x -> print x >> putStrLn "---") ()
     -- putStrLn $ renderTrace (fmap foldConstantsInState trace)
@@ -165,10 +166,10 @@ sumExample arraySize = do
     -- putStrLn $ renderTrace (fmap foldConstantsInState trace)
     let ps = paths (unTrace trace)
         overflows =
-            -- map ((allSym $ map constr summands) `SAnd`) $
+            map ((allSym $ map constr summands) `SAnd`) $
             map (last . take 1000 . iterate (tryFoldConstant . tryReduce)) $
             map (collect (\s ->
-                    tryFoldConstant $ fromJust $ List.lookup "no overflow" $
+                    fromJust $ List.lookup "no overflow" $
                         pathConstraintList s)
                 ) ps
         overflowVCs = map SMT.toSMT $ map (:[]) $ overflows
