@@ -11,88 +11,109 @@
 -----------------------------------------------------------------------------
 module Machine.Assembly where
 
-import Data.Int (Int8)
-import Machine.Types
-import Machine.Encode
-import Machine.Decode
-import Control.Monad (ap)
+import qualified Data.Map.Strict as Map
+import           Control.Monad.State
+import           Control.Arrow (second)
+import           Data.Int (Int8)
+import           Machine.Types
+import           Machine.Encode
+import           Machine.Decode
+import           Control.Monad (ap)
 
-type P = [Instruction]
+decIfNeg :: Integral a => a -> a
+decIfNeg x | x < 0     = x - 1
+           | otherwise = x
 
--- | An assembly writer monad.
-data Writer a = Writer
-    { runWriter :: P -> (a, P)
-    } deriving Functor
+goto :: String -> Script
+goto name = do
+    s <- get
+    here <- instructionCounter <$> get
+    case Map.lookup name (labels s) of
+         Nothing -> jmpi 0
+         Just there -> do
+             let offset = fromIntegral $ there - here - 1
+             jmpi offset
 
-instance Applicative Writer where
-    pure  = return
-    (<*>) = ap
+gotoZ :: String -> Script
+gotoZ name = do
+    s <- get
+    here <- instructionCounter <$> get
+    case Map.lookup name (labels s) of
+         Nothing -> jmpi 0
+         Just there -> do
+             let offset = fromIntegral $ there - here - 1
+             jmpiZ offset
 
-instance Prelude.Monad Writer where
-    return a         = Writer (\p -> (a, p))
-    Writer w >>= f = Writer (\p -> let (a, p') = w p in runWriter (f a) p')
+type Labels = Map.Map String InstructionAddress
 
-newtype Label = Label Int8
+data AssemblerState =
+    MkAssemblerState { program            :: [(InstructionAddress, Instruction)]
+                     , labels             :: Labels
+                     , instructionCounter :: InstructionAddress
+                     }
 
-label :: Writer Label
-label = Writer (\p -> (Label (fromIntegral $ length p), p))
+type Script = State AssemblerState ()
 
-goto :: Label -> Script
-goto (Label there) = do
-    Label here <- label
-    let offset = fromIntegral (there - here - 1)
-    jmpi offset -- TODO: Add error handling if offset is too large
-
-instance Show a => Show (Writer a) where
-    show s = show $ reverse $ snd $ runWriter s []
-
-type Script = Writer ()
+collectLabels :: Script -> Labels
+collectLabels src =
+    labels $ snd $ runState src (MkAssemblerState [] Map.empty 0)
 
 assemble :: Script -> Program
-assemble s = zip [0..] (map encode prg)
+assemble src =
+    map (second encode) prg
   where
-    prg = reverse $ snd $ runWriter s []
+    prg = reverse $ program $ snd $ runState src (MkAssemblerState [] labels 0)
+    labels = collectLabels src
 
-tell :: Instruction -> Script
-tell i = Writer (\p -> ((), i:p))
+instr :: Instruction -> Script
+instr i = do
+    s <- get
+    let ic = instructionCounter s
+    put $ s {program = (ic, i):program s, instructionCounter = ic + 1}
+
+label :: String -> Script
+label name = do
+    s <- get
+    let ic = instructionCounter s
+    put $ s {labels = Map.insert name ic $ labels s}
 
 -- Instructions
--- and   rX dmemaddr = tell (Instruction $ And rX dmemaddr)
--- or    rX dmemaddr = tell (Instruction $ Or  rX dmemaddr)
--- xor    rX dmemaddr = tell (Instruction $ Xor  rX dmemaddr)
+-- and   rX dmemaddr = instr (Instruction $ And rX dmemaddr)
+-- or    rX dmemaddr = instr (Instruction $ Or  rX dmemaddr)
+-- xor    rX dmemaddr = instr (Instruction $ Xor  rX dmemaddr)
 
-add   rX dmemaddr = tell (Instruction $ Add    rX dmemaddr)
-sub   rX dmemaddr = tell (Instruction $ Sub    rX dmemaddr)
-mul   rX dmemaddr = tell (Instruction $ Mul    rX dmemaddr)
-div   rX dmemaddr = tell (Instruction $ Div    rX dmemaddr)
-ld    rX dmemaddr = tell (Instruction $ Load   rX dmemaddr)
-st    rX dmemaddr = tell (Instruction $ Store  rX dmemaddr)
-ldmi  rX dmemaddr = tell (Instruction $ LoadMI rX dmemaddr)
--- stmi  rX dmemaddr = tell (Instruction StoreMI $ rX dmemaddr)
--- cmpeq rX dmemaddr = tell (Instruction $ rX dmemaddr)
--- cmplt rX dmemaddr = tell (Instruction $ rX dmemaddr)
--- cmpgt rX dmemaddr = tell (Instruction $ rX dmemaddr)
--- sl    rX dmemaddr = tell (Instruction $ rX dmemaddr)
--- sr    rX dmemaddr = tell (Instruction $ rX dmemaddr)
--- sra   rX dmemaddr = tell (Instruction $ rX dmemaddr)
+add   rX dmemaddr = instr (Instruction $ Add    rX dmemaddr)
+sub   rX dmemaddr = instr (Instruction $ Sub    rX dmemaddr)
+mul   rX dmemaddr = instr (Instruction $ Mul    rX dmemaddr)
+div   rX dmemaddr = instr (Instruction $ Div    rX dmemaddr)
+ld    rX dmemaddr = instr (Instruction $ Load   rX dmemaddr)
+st    rX dmemaddr = instr (Instruction $ Store  rX dmemaddr)
+ldmi  rX dmemaddr = instr (Instruction $ LoadMI rX dmemaddr)
+-- stmi  rX dmemaddr = instr (Instruction StoreMI $ rX dmemaddr)
+-- cmpeq rX dmemaddr = instr (Instruction $ rX dmemaddr)
+-- cmplt rX dmemaddr = instr (Instruction $ rX dmemaddr)
+-- cmpgt rX dmemaddr = instr (Instruction $ rX dmemaddr)
+-- sl    rX dmemaddr = instr (Instruction $ rX dmemaddr)
+-- sr    rX dmemaddr = instr (Instruction $ rX dmemaddr)
+-- sra   rX dmemaddr = instr (Instruction $ rX dmemaddr)
 
 -- add_si rX simm = write 0b100000 (register rX .|. simm8 simm)
 -- sub_si rX simm = write 0b100001 (register rX .|. simm8 simm)
 -- mul_si rX simm = write 0b100010 (register rX .|. simm8 simm)
 -- div_si rX simm = write 0b100011 (register rX .|. simm8 simm)
-ld_si  rX simm = tell (Instruction $ Set rX simm)
+ld_si  rX simm = instr (Instruction $ Set rX simm)
 
 -- sl_i   rX uimm = write 0b101100 (register rX .|. uimm8 uimm)
 -- sr_i   rX uimm = write 0b101101 (register rX .|. uimm8 uimm)
 -- sra_i  rX uimm = write 0b101110 (register rX .|. uimm8 uimm)
 -- ld_i   rX uimm = write 0b101111 (register rX .|. uimm8 uimm)
 
-jmpi    simm = tell (Instruction $ Jump     simm)
-jmpiZ   simm = tell (Instruction $ JumpZero simm)
+jmpi    simm = instr (Instruction $ Jump     simm)
+jmpiZ   simm = instr (Instruction $ JumpZero simm)
 -- jmpi_ct simm = write 0b110001 (simm10 simm)
 -- jmpi_cf simm = write 0b110010 (simm10 simm)
 -- wait    uimm = write 0b110011 (uimm10 uimm)
 
 -- not rX = write 0b111000 (register rX)
-abs rX = tell (Instruction $ Abs rX)
-halt   = tell (Instruction $ Halt)
+abs rX = instr (Instruction $ Abs rX)
+halt   = instr (Instruction $ Halt)

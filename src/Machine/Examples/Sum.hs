@@ -1,6 +1,7 @@
 module Machine.Examples.Sum where
 
 import qualified Data.Map         as Map
+import           Control.Arrow (second)
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
@@ -8,6 +9,7 @@ import           Machine.Assembly
 import           Machine.Symbolic
 import qualified Machine.SMT      as SMT
 import           Machine.Encode
+import           Machine.Decode
 import qualified Machine.Types.Trace.Viz as Viz
 import           Machine.Examples.Common
 import qualified Algebra.Graph            as G
@@ -44,54 +46,27 @@ import           Data.Maybe (fromJust)
 --     ld r0 sum
 --     halt
 
-sumArrayLowLevel :: Program
-sumArrayLowLevel =
-    let { pointer = 0; sum = 253; const_one = 254; const_two = 255 } in -- ; pointer_store
-    assemble $ do
-
+sumArrayLowLevel :: Script
+sumArrayLowLevel = do
+    let { pointer = 0; sum = 253; const_one = 254; const_two = 255 }
     ld_si R0 0
     st R0 sum
     ld R1 pointer
     add R1 const_one
     st R1 pointer
-    loop <- label
+    label "loop"
     sub R1 const_one
-    jmpiZ 8
+    gotoZ "end"
     ldmi R2 pointer
     add R2 sum
     st R2 sum
     ld R1 pointer
     sub R1 const_one
     st R1 pointer
-    goto loop
-    -- jmpi (-9)
+    goto "loop"
+    label "end"
     ld R0 sum
     halt
-    halt
-
--- sumArrayLowLevel1 :: Program
--- sumArrayLowLevel1 =
---     let { pointer = 0; sum = 253; const_one = 254; const_two = 255 } in -- ; pointer_store
---     zip [0..] $ map encode
---     [ Instruction (Set R0 0)
---     , Instruction (Store R0 sum)
---     , Instruction (Load R1 pointer)
---     , Instruction (Add R1 const_one)
---     , Instruction (Store R1 pointer)
---     -- , Instruction (loop <- label)
---     , Instruction (Sub R1 const_one)
---     , Instruction (JumpZero 8)
---     , Instruction (LoadMI R2 pointer)
---     , Instruction (Add R2 sum)
---     , Instruction (Store R2 sum)
---     , Instruction (Load R1 pointer)
---     , Instruction (Sub R1 const_one)
---     , Instruction (Store R1 pointer)
---     , Instruction (Jump (-9))
---     , Instruction (Load R0 sum)
---     , Instruction (Halt)
---     , Instruction (Halt)
---     ]
 
 reg2HasResult :: State -> Sym Bool
 reg2HasResult s =
@@ -117,13 +92,13 @@ sumExampleIO arraySize = do
     -- let names = map (("x" ++) . show) [1..arraySize]
     let summands = map SAny [1..arraySize]
     -- constrain xs to be in [0, 1000]
-    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst $ 2 ^ 63 - 1)))
-    -- let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
+    -- let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst $ 2 ^ 63 - 1)))
+    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
     -- sequence_ (zipWith ($) (repeat constr) summands)
     let mem = initialiseMemory (zip [2..] summands ++
                                 [(0, SConst . fromIntegral $ arraySize)] ++
                                 [(254, SConst 1), (255, SConst 2)])
-        initialState = boot sumArrayLowLevel mem
+        initialState = boot (assemble sumArrayLowLevel) mem
         trace = constraint "no overflow" (SNot . overflowSet) $
                 -- constraint "Halted" halted $
                 constraint "Summands are in range" (const (allSym $ map constr summands)) $
@@ -152,6 +127,7 @@ sumExampleIO arraySize = do
     -- putStrLn $ renderSolvedTrace $ solved
 
     mapM_ print (zip overflows satResults)
+    mapM_ print (map ((registers . nodeBody . last)) ps)
     -- mapM_ print (satResults)
     -- mapM_ (\x -> print x >> putStrLn "---") $ zip satResults overflows
 
@@ -177,7 +153,7 @@ sumExample arraySize = do
     let mem = initialiseMemory (zip [2..] summands ++
                                 [(0, SConst . fromIntegral $ arraySize)] ++
                                 [(254, SConst 1), (255, SConst 2)])
-        initialState = boot sumArrayLowLevel mem
+        initialState = boot (assemble sumArrayLowLevel) mem
         trace = constraint "no overflow" (SNot . overflowSet) $
                 constraint "Halted" halted $
                 -- constraint "Summands are in range" (const (allSym $ map constr summands)) $
