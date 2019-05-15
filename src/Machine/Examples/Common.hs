@@ -2,6 +2,7 @@ module Machine.Examples.Common where
 
 import           Machine.Types
 import           Machine.Types.State
+import           Machine.Types.Trace
 import qualified Data.Map.Strict as Map
 
 readProgram :: FilePath -> IO Program
@@ -27,3 +28,15 @@ overflowSet s = (Map.!) (flags s) Overflow
 
 halted :: State -> Sym Bool
 halted s = (Map.!) (flags s) Halted
+
+allSym :: [Sym Bool] -> Sym Bool
+allSym = foldr SAnd (SConst True)
+
+anySym :: [Sym Bool] -> Sym Bool
+anySym = foldr SOr (SConst False)
+
+collect :: (State -> Sym Bool) -> Path (Node State) -> Sym Bool
+collect predicate path =
+    -- foldr SAnd
+    let conds = map (predicate . nodeBody) path
+    in  anySym conds

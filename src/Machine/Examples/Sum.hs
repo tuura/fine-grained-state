@@ -54,8 +54,7 @@ sumArrayLowLevel = do
     ld R1 pointer
     add R1 const_one
     st R1 pointer
-    label "loop"
-    sub R1 const_one
+    "loop" @@ sub R1 const_one
     gotoZ "end"
     ldmi R2 pointer
     add R2 sum
@@ -64,26 +63,13 @@ sumArrayLowLevel = do
     sub R1 const_one
     st R1 pointer
     goto "loop"
-    label "end"
-    ld R0 sum
+    "end" @@ ld R0 sum
     halt
 
 reg2HasResult :: State -> Sym Bool
 reg2HasResult s =
     (Map.!) (registers s) R2 `SEq`
         (SAdd (SAny 1) (SAdd (SAny 2) (SAdd (SAny 3) (SConst 0))))
-
-allSym :: [Sym Bool] -> Sym Bool
-allSym = foldr SAnd (SConst True)
-
-anySym :: [Sym Bool] -> Sym Bool
-anySym = foldr SOr (SConst False)
-
-collect :: (State -> Sym Bool) -> Path (Node State) -> Sym Bool
-collect predicate path =
-    -- foldr SAnd
-    let conds = map (predicate . nodeBody) path
-    in  anySym conds
 
 sumExampleIO :: Int -> IO ()
 sumExampleIO arraySize = do
@@ -92,8 +78,8 @@ sumExampleIO arraySize = do
     -- let names = map (("x" ++) . show) [1..arraySize]
     let summands = map SAny [1..arraySize]
     -- constrain xs to be in [0, 1000]
-    -- let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst $ 2 ^ 63 - 1)))
-    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
+    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst $ 2 ^ 63 - 1)))
+    -- let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
     -- sequence_ (zipWith ($) (repeat constr) summands)
     let mem = initialiseMemory (zip [2..] summands ++
                                 [(0, SConst . fromIntegral $ arraySize)] ++

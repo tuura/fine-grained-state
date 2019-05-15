@@ -71,6 +71,11 @@ instr i = do
     let ic = instructionCounter s
     put $ s {program = (ic, i):program s, instructionCounter = ic + 1}
 
+(@@) :: String -> Script -> Script
+name @@ src = do
+    label name
+    src
+
 label :: String -> Script
 label name = do
     s <- get
