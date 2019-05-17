@@ -29,8 +29,23 @@ encode = \case
     Instruction (Jump     byte)   ->
         fromBitsLE $ [f, f, f, t, t, f] ++ encodeByte byte
                                         ++ pad 50
-    Instruction (JumpZero byte)   ->
-        fromBitsLE $ [f, f, f, t, t, t] ++ encodeByte byte
+    Instruction (CmpEq      r addr) ->
+        fromBitsLE $ [f, t, f, f, f, t] ++ encodeRegister r
+                                        ++ encodeMemoryAddress addr
+                                        ++ pad 48
+    Instruction (CmpLt      r addr) ->
+        fromBitsLE $ [f, t, f, f, t, f] ++ encodeRegister r
+                                        ++ encodeMemoryAddress addr
+                                        ++ pad 48
+    Instruction (CmpGt      r addr) ->
+        fromBitsLE $ [f, t, f, f, t, t] ++ encodeRegister r
+                                        ++ encodeMemoryAddress addr
+                                        ++ pad 48
+    Instruction (JumpCt byte)   ->
+        fromBitsLE $ [t, t, f, f, f, t] ++ encodeByte byte
+                                        ++ pad 50
+    Instruction (JumpCf byte)   ->
+        fromBitsLE $ [t, t, f, f, t, f] ++ encodeByte byte
                                         ++ pad 50
     Instruction (Sub      r addr) ->
         fromBitsLE $ [f, f, t, f, f, f] ++ encodeRegister r

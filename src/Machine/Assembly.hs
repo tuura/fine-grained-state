@@ -44,6 +44,26 @@ gotoZ name = do
              let offset = fromIntegral $ there - here - 1
              jmpiZ offset
 
+goto_ct :: String -> Script
+goto_ct name = do
+    s <- get
+    here <- instructionCounter <$> get
+    case Map.lookup name (labels s) of
+         Nothing -> jmpi 0
+         Just there -> do
+             let offset = fromIntegral $ there - here - 1
+             jmpi_ct offset
+
+goto_cf :: String -> Script
+goto_cf name = do
+    s <- get
+    here <- instructionCounter <$> get
+    case Map.lookup name (labels s) of
+         Nothing -> jmpi 0
+         Just there -> do
+             let offset = fromIntegral $ there - here - 1
+             jmpi_cf offset
+
 type Labels = Map.Map String InstructionAddress
 
 data AssemblerState =
@@ -95,9 +115,9 @@ ld    rX dmemaddr = instr (Instruction $ Load   rX dmemaddr)
 st    rX dmemaddr = instr (Instruction $ Store  rX dmemaddr)
 ldmi  rX dmemaddr = instr (Instruction $ LoadMI rX dmemaddr)
 -- stmi  rX dmemaddr = instr (Instruction StoreMI $ rX dmemaddr)
--- cmpeq rX dmemaddr = instr (Instruction $ rX dmemaddr)
--- cmplt rX dmemaddr = instr (Instruction $ rX dmemaddr)
--- cmpgt rX dmemaddr = instr (Instruction $ rX dmemaddr)
+cmpeq rX dmemaddr = instr (Instruction $ CmpEq rX dmemaddr)
+cmplt rX dmemaddr = instr (Instruction $ CmpLt rX dmemaddr)
+cmpgt rX dmemaddr = instr (Instruction $ CmpGt rX dmemaddr)
 -- sl    rX dmemaddr = instr (Instruction $ rX dmemaddr)
 -- sr    rX dmemaddr = instr (Instruction $ rX dmemaddr)
 -- sra   rX dmemaddr = instr (Instruction $ rX dmemaddr)
@@ -115,8 +135,8 @@ ld_si  rX simm = instr (Instruction $ Set rX simm)
 
 jmpi    simm = instr (Instruction $ Jump     simm)
 jmpiZ   simm = instr (Instruction $ JumpZero simm)
--- jmpi_ct simm = write 0b110001 (simm10 simm)
--- jmpi_cf simm = write 0b110010 (simm10 simm)
+jmpi_ct simm = instr (Instruction $ JumpCt simm)
+jmpi_cf simm = instr (Instruction $ JumpCf simm)
 -- wait    uimm = write 0b110011 (uimm10 uimm)
 
 -- not rX = write 0b111000 (register rX)

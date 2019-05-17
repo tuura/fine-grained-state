@@ -86,6 +86,20 @@ jumpZeroSym simm =
     whenSym (readKey (F Zero))
             (void $ writeKey IC ((SAdd (SConst . fromIntegral $ simm)) <$> readKey IC))
 
+-- | The semantics for JumpCt for now has to be hijacked and implemented in terms of the
+--   symbolic-aware whenSym (instead of the desired Selective whenS).
+jumpCtSym :: SImm8 -> SymEngine ()
+jumpCtSym simm =
+    whenSym (readKey (F Condition))
+            (void $ writeKey IC ((SAdd (SConst . fromIntegral $ simm)) <$> readKey IC))
+
+-- | The semantics for JumpCt for now has to be hijacked and implemented in terms of the
+--   symbolic-aware whenSym (instead of the desired Selective whenS).
+jumpCfSym :: SImm8 -> SymEngine ()
+jumpCfSym simm =
+    whenSym (SNot <$> readKey (F Condition))
+            (void $ writeKey IC ((SAdd (SConst . fromIntegral $ simm)) <$> readKey IC))
+
 loadMISym :: Register -> MemoryAddress -> SymEngine ()
 loadMISym rX dmemaddr = do
     writeRegister rX =<< readMemory =<< toMemoryAddress <$> readMemory dmemaddr
@@ -103,6 +117,8 @@ symStep state =
              case decode instrCode of
                 (Instruction (JumpZero offset)) -> jumpZeroSym offset
                 (Instruction (LoadMI reg addr)) -> loadMISym reg addr
+                (Instruction (JumpCt offset))   -> jumpCtSym offset
+                (Instruction (JumpCf offset))   -> jumpCfSym offset
                 i                               -> instructionSemantics i readKey writeKey
     in map snd $ runSymEngine instrSemantics fetched
 

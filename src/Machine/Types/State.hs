@@ -44,7 +44,8 @@ emptyRegisters :: Map.Map Register (Sym Value)
 emptyRegisters = Map.fromList $ zip [R0, R1, R2, R3] (map SConst [0, 0..])
 
 emptyFlags :: Map.Map Flag (Sym Bool)
-emptyFlags = Map.fromList $ zip [Zero, Overflow, Halted] (map SConst $ repeat False)
+emptyFlags = Map.fromList $
+  zip [Zero, Overflow, Halted, Condition] (map SConst $ repeat False)
 
 initialiseMemory :: [(MemoryAddress, Sym Value)] -> Map.Map MemoryAddress (Sym Value)
 initialiseMemory vars =

@@ -46,24 +46,51 @@ import           Data.Maybe (fromJust)
 --     ld r0 sum
 --     halt
 
+-- sumArrayLowLevel :: Script
+-- sumArrayLowLevel = do
+--     let { pointer = 0; sum = 253; const_one = 254; const_two = 255 }
+--     ld_si R0 0
+--     st R0 sum
+--     ld R1 pointer
+--     add R1 const_one
+--     st R1 pointer
+--     "loop" @@ sub R1 const_one
+--     gotoZ "end"
+--     ldmi R2 pointer
+--     add R2 sum
+--     st R2 sum
+--     ld R1 pointer
+--     sub R1 const_one
+--     st R1 pointer
+--     goto "loop"
+--     "end" @@ ld R0 sum
+--     halt
+
 sumArrayLowLevel :: Script
 sumArrayLowLevel = do
-    let { pointer = 0; sum = 253; const_one = 254; const_two = 255 }
-    ld_si R0 0
-    st R0 sum
-    ld R1 pointer
-    add R1 const_one
-    st R1 pointer
-    "loop" @@ sub R1 const_one
-    gotoZ "end"
-    ldmi R2 pointer
-    add R2 sum
-    st R2 sum
-    ld R1 pointer
-    sub R1 const_one
-    st R1 pointer
+    let { r0 = R0; r1 = R1; r2 = R2; r3 = R3 }
+    let { pointer = 0; sum = 253; const_one = 254; const_two = 255 } -- ; pointer_store
+    ld_si r0 0
+    st r0 sum
+    ld r1 pointer
+    add r1 const_one
+    st r1 pointer
+
+    -- compare the pointer variable to the constant 2 (stored in the cell 255)
+    "loop" @@ cmplt r1 const_two
+    -- if pointer < 2 then terminate
+    goto_ct "end"
+    -- jmpi_ct 7
+
+    ldmi r2 pointer
+    add r2 sum
+    st r2 sum
+    ld r1 pointer
+    sub r1 const_one
+    st r1 pointer
+
     goto "loop"
-    "end" @@ ld R0 sum
+    "end" @@ ld r0 sum
     halt
 
 reg2HasResult :: State -> Sym Bool
@@ -78,8 +105,8 @@ sumExampleIO arraySize = do
     -- let names = map (("x" ++) . show) [1..arraySize]
     let summands = map SAny [1..arraySize]
     -- constrain xs to be in [0, 1000]
-    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst $ 2 ^ 63 - 1)))
-    -- let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
+    -- let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst $ 2 ^ 63 - 1)))
+    let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
     -- sequence_ (zipWith ($) (repeat constr) summands)
     let mem = initialiseMemory (zip [2..] summands ++
                                 [(0, SConst . fromIntegral $ arraySize)] ++
@@ -94,7 +121,7 @@ sumExampleIO arraySize = do
                 -- constraint (const (y `SGt` (SConst 0)))  $
                 -- constraint (const (y `SLt` (SConst 1000))) $
                 runModel steps initialState
-    -- putStrLn $ renderTrace (fmap foldConstantsInState trace)
+    putStrLn $ renderTrace (fmap foldConstantsInState trace)
     let ps = paths (unTrace trace)
         overflows =
             -- map (\b -> (SNot . halted . nodeBody $ last (head ps)) `SAnd` b) $
@@ -129,7 +156,7 @@ sumExampleIO arraySize = do
 
 sumExample :: Int -> IO (Sym Bool)
 sumExample arraySize = do
-    let steps = 100 -- 40 is enough for (sum 3)
+    let steps = 10000 -- 40 is enough for (sum 3)
     -- 54 give an error: *** Exception: Map.!: given key is not an element in the map
     -- let names = map (("x" ++) . show) [1..arraySize]
     let summands = map SAny [1..arraySize]

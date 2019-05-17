@@ -26,6 +26,7 @@ type SImm8 = Int8
 data Flag = Zero
           | Overflow
           | Halted
+          | Condition
           deriving (Show, Prelude.Read, Eq, Ord, Enum)
 
 type Value = Int64
@@ -57,28 +58,41 @@ data InstructionImpl (c :: (* -> *) -> Constraint) where
   Div    :: Register -> MemoryAddress -> InstructionImpl Applicative
   Mod    :: Register -> MemoryAddress -> InstructionImpl Applicative
   Abs    :: Register -> InstructionImpl Applicative
-  Jump :: SImm8 -> InstructionImpl Applicative
+  Jump   :: SImm8 -> InstructionImpl Applicative
   JumpZero :: SImm8 -> InstructionImpl Selective
   LoadMI :: Register -> MemoryAddress -> InstructionImpl Prelude.Monad
+
+  CmpEq :: Register -> MemoryAddress -> InstructionImpl Selective
+  CmpGt :: Register -> MemoryAddress -> InstructionImpl Selective
+  CmpLt :: Register -> MemoryAddress -> InstructionImpl Selective
+
+  JumpCt :: SImm8 -> InstructionImpl Selective
+  JumpCf :: SImm8 -> InstructionImpl Selective
 
 deriving instance Eq  (InstructionImpl c)
 deriving instance Ord (InstructionImpl c)
 
 instance Show (InstructionImpl c) where
   show = \case
-    Halt            -> "Halt"
-    Load  reg addr  -> "Load " ++ show reg ++ " " ++ show addr
-    Set   reg value -> "Set " ++ show reg ++ " " ++ show value
-    Store reg addr  -> "Store " ++ show reg ++ " " ++ show addr
-    Add   reg addr  -> "Add " ++ show reg ++ " " ++ show addr
-    Sub   reg addr  -> "Sub " ++ show reg ++ " " ++ show addr
-    Mul   reg addr  -> "Mul " ++ show reg ++ " " ++ show addr
-    Div   reg addr  -> "Div " ++ show reg ++ " " ++ show addr
-    Mod   reg addr  -> "Mod " ++ show reg ++ " " ++ show addr
-    Abs   reg       -> "Abs " ++ show reg
-    Jump  offset    -> "Jump " ++ show offset
-    JumpZero offset -> "JumpZero " ++ show offset
-    LoadMI reg addr -> "LoadMI " ++ show reg ++ " " ++ show addr
+    Halt               -> "Halt"
+    Load     reg addr  -> "Load "     ++ show reg ++ " " ++ show addr
+    Set      reg value -> "Set "      ++ show reg ++ " " ++ show value
+    Store    reg addr  -> "Store "    ++ show reg ++ " " ++ show addr
+    Add      reg addr  -> "Add "      ++ show reg ++ " " ++ show addr
+    Sub      reg addr  -> "Sub "      ++ show reg ++ " " ++ show addr
+    Mul      reg addr  -> "Mul "      ++ show reg ++ " " ++ show addr
+    Div      reg addr  -> "Div "      ++ show reg ++ " " ++ show addr
+    Mod      reg addr  -> "Mod "      ++ show reg ++ " " ++ show addr
+    Abs      reg       -> "Abs "      ++ show reg
+    Jump     offset    -> "Jump "     ++ show offset
+    JumpZero offset    -> "JumpZero " ++ show offset
+    JumpCt   offset    -> "JumpCt "   ++ show offset
+    JumpCf   offset    -> "JumpCf "   ++ show offset
+    LoadMI   reg addr  -> "LoadMI "   ++ show reg ++ " " ++ show addr
+
+    CmpEq    reg addr  -> "CmpEq " ++ show reg ++ " " ++ show addr
+    CmpGt    reg addr  -> "CmpGt " ++ show reg ++ " " ++ show addr
+    CmpLt    reg addr  -> "CmpLt " ++ show reg ++ " " ++ show addr
 
 data Instruction = forall c. Instruction (InstructionImpl c)
 

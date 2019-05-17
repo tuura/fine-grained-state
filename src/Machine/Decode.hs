@@ -25,8 +25,21 @@ decode code =
                     (fromBitsLE $ extractMemoryAddress expandedCode)
           | opcode == [f, f, f, t, t, f]   -> Instruction $
                 Jump (fromBitsLE $ extractSImm8Jump expandedCode)
-          | opcode == [f, f, f, t, t, t]    -> Instruction $
-                JumpZero (fromBitsLE $ extractSImm8Jump expandedCode)
+      --     | opcode == [f, f, f, t, t, t]    -> Instruction $
+      --           JumpZero (fromBitsLE $ extractSImm8Jump expandedCode)
+          | opcode == [f, t, f, f, f, t]   -> Instruction $
+                CmpEq (decodeRegister . extractRegister $ expandedCode)
+                    (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, t, f, f, t, f]   -> Instruction $
+                CmpLt (decodeRegister . extractRegister $ expandedCode)
+                    (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [f, t, f, f, t, t]   -> Instruction $
+                CmpGt (decodeRegister . extractRegister $ expandedCode)
+                    (fromBitsLE $ extractMemoryAddress expandedCode)
+          | opcode == [t, t, f, f, f, t]    -> Instruction $
+                JumpCt (fromBitsLE $ extractSImm8Jump expandedCode)
+          | opcode == [t, t, f, f, t, f]    -> Instruction $
+                JumpCf (fromBitsLE $ extractSImm8Jump expandedCode)
           | opcode == [f, f, t, f, f, f]   -> Instruction $
                 Sub (decodeRegister . extractRegister $ expandedCode)
                     (fromBitsLE $ extractMemoryAddress expandedCode)

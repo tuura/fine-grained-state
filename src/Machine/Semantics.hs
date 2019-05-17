@@ -160,6 +160,24 @@ jump simm read write = void $
 jumpZero :: SImm8 -> FS Selective ()
 jumpZero _ _ _ = error "jumpZero not implemented"
 
+jumpCt :: SImm8 -> FS Selective ()
+jumpCt _ _ _ = error "jumpCt not implemented"
+
+jumpCf :: SImm8 -> FS Selective ()
+jumpCf _ _ _ = error "jumpCf not implemented"
+
+cmpEq :: Register -> MemoryAddress -> FS Applicative ()
+cmpEq reg addr = \read write -> void $
+    write (F Condition) (SEq <$> read (Reg reg) <*> read (Addr addr))
+
+cmpGt :: Register -> MemoryAddress -> FS Applicative ()
+cmpGt reg addr = \read write -> void $
+    write (F Condition) (SGt <$> read (Reg reg) <*> read (Addr addr))
+
+cmpLt :: Register -> MemoryAddress -> FS Applicative ()
+cmpLt reg addr = \read write -> void $
+    write (F Condition) (SLt <$> read (Reg reg) <*> read (Addr addr))
+
 instructionSemantics :: Instruction -> FS Selective ()
 instructionSemantics (Instruction i) r w = case i of
     Halt -> halt r w
@@ -175,3 +193,10 @@ instructionSemantics (Instruction i) r w = case i of
     Abs reg        -> abs reg r w
     Jump simm8     -> jump simm8 r w
     JumpZero simm8 -> jumpZero simm8 r w
+
+    CmpEq reg addr -> cmpEq reg addr r w
+    CmpGt reg addr -> cmpGt reg addr r w
+    CmpLt reg addr -> cmpLt reg addr r w
+
+    JumpCt simm8   -> jumpCt simm8 r w
+    JumpCf simm8   -> jumpCf simm8 r w

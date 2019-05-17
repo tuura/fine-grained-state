@@ -45,6 +45,9 @@ default-extensions:
 - LambdaCase
 - MultiWayIf
 
+ghc-options:
+- -fwarn-incomplete-uni-patterns
+
 library:
   source-dirs: src
 

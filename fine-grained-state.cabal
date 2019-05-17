@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c4c14b316702f0e2b1703b229f8d2ce99f5bf3b5985ea31da68547c8c13dbd2e
+-- hash: 3ea02cd4d3637b9f4d43c2d7d16ffbeef58990c1215bfb93da642e4289be4b4d
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -48,6 +48,7 @@ library
   hs-source-dirs:
       src
   default-extensions: TypeFamilies TypeApplications TypeOperators DataKinds ScopedTypeVariables DerivingVia DeriveFunctor StandaloneDeriving MultiParamTypeClasses KindSignatures ConstraintKinds FlexibleInstances FlexibleContexts GADTs RankNTypes OverloadedStrings LambdaCase MultiWayIf
+  ghc-options: -fwarn-incomplete-uni-patterns
   build-depends:
       algebraic-graphs
     , base >=4.7 && <5
