@@ -1,11 +1,13 @@
 module Machine.Examples.GCD where
 
+import           System.CPUTime
+import           Text.Printf
 import           Prelude hiding (mod)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Control.Selective
 import           Data.Foldable (sequenceA_)
 -- import qualified Data.Tree as Tree
-import qualified Data.SBV.Dynamic as SBV
+import qualified Data.SBV         as SBV
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
@@ -35,43 +37,45 @@ gcdProgram = do
     goto "loop"
     "end" @@ halt
 
+-- | Constrain variable's value to be in [0, 1000]
+inRange :: Sym Value -> Sym Bool
+inRange x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
+
+result :: Path (Node State) -> Sym Value
+result = (\s -> (Map.!) (registers s) R1) . nodeBody . last
+
 gcdExample :: IO ()
 gcdExample = do
+    putStrLn "--------------------------------------------------"
     let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
-    let steps = 10
+    let steps = 1000
         -- x = SConst 2
         -- y = SConst 3
         x = SAny 0
         y = SAny 1
         mem = initialiseMemory [(0, x), (1, y)]
         initialState = boot (assemble gcdProgram) mem
-        trace =
-                constraint "no overflow" overflowSet $
-                -- constraint "x is in range" (const (x `SGt` (SConst 20))) $
-                -- constraint "x is in range" (const (x `SLt` (SConst 30))) $
-                -- constraint "y is in range" (const (y `SGt` (SConst 0)))  $
-                -- constraint "y is in range" (const (y `SLt` (SConst 10))) $
-                -- constraint halted $
-                runModel steps initialState
-    -- print gcdProgram
-    -- putStrLn $ Tree.drawTree $ fmap renderState $ trace
-    -- putStrLn $ unlines $ fmap renderState $ subsetTrace halted trace
-
-    -- s <- SMT.solveTrace trace
-    putStrLn $ "Trace depth: " ++ show (traceDepth trace)
+        trace = runModel steps initialState
     let ps = paths (unTrace trace)
-    putStrLn $ "Path in trace: " ++ show (length ps)
-    let overflows =
-            -- map (\b -> (SNot . halted . nodeBody $ last (head ps)) `SAnd` b) $
-            map (last . take 1000 . iterate (tryFoldConstant . tryReduce)) $
-            -- map ((allSym $ map constr summands) `SAnd`) $
-            map (collect (\s ->
-                    (Map.!) (flags s) Overflow)
-                ) ps
-        overflowVCs = map SMT.toSMT $ map (:[]) $ overflows
-    satResults <- mapM (SBV.satWith SMT.prover) overflowVCs
-    mapM_ print (zip overflows satResults)
-    -- putStrLn $ renderTrace $ trace
-    -- putStrLn $ renderSolvedTrace $ s
-    -- putStrLn . unlines . fmap SMT.renderSolvedState $ queryTrace s
-    -- print $ map SMT.renderSMTResult . map (\(SMT.SolvedState x y) -> y) $ queryTrace s
+    putStrLn $ "Non-trivial paths: " <> show (length ps)
+    putStrLn "--------------------------------------------------"
+    mapM_ (processPath (allSym $ map inRange [x, y])) (zip [1..] ps)
+    where
+        processPath :: Sym Bool -> (Int, Path (Node State)) -> IO ()
+        processPath preconditions (pathId, path) = do
+            putStrLn $ "Path id: " <> show pathId
+            putStrLn $ "Nodes in path: " <> show (length path)
+            let overflowSymVC =
+                    preconditions           `SAnd`
+                    (SNot $ pathHalts path)
+                    `SAnd`
+                    findOverflowInPath path
+                overflowSbvVC = SMT.toSMT [overflowSymVC]
+            satStart <- getCPUTime
+            satResult <- SBV.satWith SMT.prover overflowSbvVC
+            satFinish <- getCPUTime
+            putStrLn $ "Find overflow VC : " <> show satResult
+            let diff = (fromIntegral (satFinish - satStart)) / (10^12)
+            printf "SAT Computation time: %0.3f sec\n" (diff :: Double)
+            -- putStrLn $ "GCD symbolic expression: " <> show (result path)
+            putStrLn "--------------------------------------------------"
