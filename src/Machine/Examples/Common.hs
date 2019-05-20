@@ -45,3 +45,17 @@ collect predicate path =
     -- foldr SAnd
     let conds = map (predicate . nodeBody) path
     in  anySym conds
+
+-- | Calculate overflow verification condition for a given path in a program.
+--
+--   All node in a path contain a symbolic boolean representing the state of
+--   the @Overflow@ flag after executing the instruction stored in the
+--   instruction register. To check if the path is overflow-free, we need to
+--   prove the /disjunction/ of overflow conditions on every node of the path.
+findOverflowInPath :: Path (Node State) -> Sym Bool
+findOverflowInPath = anySym . map (overflow . nodeBody)
+    where overflow s = (Map.!) (flags s) Overflow
+
+-- | Check if the @Halted@ flag is set in the /last/ node of the path
+pathHalts :: Path (Node State) -> Sym Bool
+pathHalts = halted . nodeBody . last
