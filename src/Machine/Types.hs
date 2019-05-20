@@ -220,3 +220,8 @@ tryReduce = \case
     (SLt (SConst 0) (SConst 0)) -> SConst True
     (SLt x y) -> tryReduce x `SLt` tryReduce y
     s -> s
+
+simplify :: Int -> Sym a -> Sym a
+simplify steps | steps <= 0  = id
+               | otherwise   = last . take steps
+                             . iterate (tryFoldConstant . tryReduce)

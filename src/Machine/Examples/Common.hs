@@ -1,9 +1,14 @@
+{-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Machine.Examples.Common where
 
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
 import qualified Data.Map.Strict as Map
+
+-- | Register mnemonics
+r0, r1, r2, r3 :: Register
+[r0, r1, r2, r3] = [R0, R1, R2, R3]
 
 readProgram :: FilePath -> IO Program
 readProgram = (fmap parseProgram) . readFile
