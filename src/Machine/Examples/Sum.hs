@@ -68,7 +68,6 @@ import           Data.Maybe (fromJust)
 
 sumArrayLowLevel :: Script
 sumArrayLowLevel = do
-    let { r0 = R0; r1 = R1; r2 = R2; r3 = R3 }
     let { pointer = 0; sum = 253; const_one = 254; const_two = 255 } -- ; pointer_store
     ld_si r0 0
     st r0 sum
