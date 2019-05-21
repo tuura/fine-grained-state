@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7431051ca2a54471ecf09d1f19e5938cfcc9b313aaddd440536ad5ee206afb91
+-- hash: 17266414c1881b868130f439ec7a0f69c86caf8bb9d4bae580276b64c236ae38
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -36,6 +36,7 @@ library
       Machine.Examples.Energy
       Machine.Examples.GCD
       Machine.Examples.MotorControl
+      Machine.Examples.MotorControlLoopInvariant
       Machine.Examples.Sum
       Machine.Semantics
       Machine.SMT

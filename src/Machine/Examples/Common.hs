@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Machine.Examples.Common where
 
+import qualified Data.SBV as SBV
+import           Machine.Decode
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
@@ -59,3 +61,22 @@ findOverflowInPath = anySym . map (overflow . nodeBody)
 -- | Check if the @Halted@ flag is set in the /last/ node of the path
 pathHalts :: Path (Node State) -> Sym Bool
 pathHalts = halted . nodeBody . last
+
+-- | Calculate the amount of jump instructions in the path
+countJumps :: Path (Node State) -> Int
+countJumps = length . filter isJump
+    where isJump :: Node State -> Bool
+          isJump (Node _ state) =
+            case decode (instructionRegister state) of
+                (Instruction (Jump   _)) -> True
+                (Instruction (JumpCt _)) -> True
+                (Instruction (JumpCf _)) -> True
+                _                        -> False
+
+endOfPath :: Path (Node s) -> s
+endOfPath = nodeBody . last
+
+isSat :: SBV.SatResult -> Bool
+isSat = \case
+    (SBV.SatResult (SBV.Satisfiable _ _)) -> True
+    _                                     -> False
