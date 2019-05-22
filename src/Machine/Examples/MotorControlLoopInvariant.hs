@@ -16,6 +16,7 @@ module Machine.Examples.MotorControlLoopInvariant where
 import           System.CPUTime
 import           Text.Printf
 import           Text.Pretty.Simple (pPrint)
+import           Data.Maybe (fromJust)
 import           Prelude hiding (div, mod)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Control.Selective
@@ -28,7 +29,7 @@ import           Machine.Types.Trace
 import           Machine.Decode
 import           Machine.Symbolic
 import           Machine.Assembly
-import           Machine.Semantics (FS, instructionSemantics)
+import qualified Machine.Semantics as S
 import qualified Machine.SMT      as SMT
 import qualified Data.Map.Strict  as Map
 import           Machine.Encode
@@ -238,3 +239,12 @@ motorControlBodyExample steps = do
             putStrLn $ "Nodes in path: " <> show (length path)
             putStrLn $ "Find VC : " <> show satResult
 
+-- | Generate a data-flow graph of the motor control program's loop body
+--   and write it to an .dot file
+--
+--   It may be then converted to .svg with the following command:
+--   dot -Tsvg motorControlLoop.dot -o motorControlLoop.svg
+mtLoopGraph :: FilePath -> IO ()
+mtLoopGraph fname =
+    writeFile fname $
+        S.drawGraph $ fromJust $ S.programDataGraph (assemble mc_loop)
