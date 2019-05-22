@@ -162,6 +162,14 @@ nonZero = \case
   (SConst 0) -> True
   _          -> False
 
+-- | Unsafely extract a value of a symbolic expression if it is, in fact,
+--   a constant; throw an error if it is not.
+unliteral :: Sym a -> a
+unliteral = \case
+    (SConst x) -> x
+    _          -> error "unliteral: can only extract a value from SConst"
+
+
 -- | Try to perform constant folding and get the resulting value. Return 'Nothing' on
 --   encounter of a symbolic variable.
 getValue :: Sym a -> Maybe a

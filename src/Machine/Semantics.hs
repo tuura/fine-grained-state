@@ -3,7 +3,15 @@ module Machine.Semantics where
 import Prelude hiding (Read, Monad, div, mod, abs)
 import qualified Prelude (Read, Monad, div, mod, abs)
 import Data.Functor (void)
+import Data.Either (partitionEithers)
 import Control.Selective
+import Control.Arrow (second)
+import Machine.Decode (decode)
+import qualified Data.Set as Set
+import Data.String (fromString)
+import Data.Maybe (fromJust)
+import Algebra.Graph hiding (graph)
+import Algebra.Graph.Export.Dot
 import Machine.Types
 
 --------------------------------------------------------------------------------
@@ -41,6 +49,64 @@ type FS c a = forall f. c f => Read f ->
                                Write f ->
                                f a
 
+--------------------------------------------------------------------------------
+--------------- Data-flow graphs of programs -----------------------------------
+--------------------------------------------------------------------------------
+
+type KeyLabel = String
+
+type InstructionLabel = String
+
+-- | Extract input and output data-dependencies of a computation
+dependencies :: FS Selective a
+             -> ([KeyLabel], [KeyLabel])
+dependencies task =
+    partitionEithers . getOver $
+    task trackingRead trackingWrite
+  where trackingRead  k    = Over       [Left  $ show k]
+        trackingWrite k fv = fv *> Over [Right $ show k]
+
+-- | Compute static data flow graph of an instruction. In case of supplying a
+--   monadic, i.e. data-dependent instruction, 'Nothing' is returned.
+--
+-- Since no data requiring simulation is performed, the semantics metalanguage
+-- terms are mocked: 'read' becomes 'const 0' is 'write' is simply ignored.
+instructionGraph :: (InstructionAddress, Instruction)
+                    -> Maybe (Graph (Either KeyLabel InstructionLabel))
+instructionGraph i@(addr, instr) = do
+    let (ins, outs) = dependencies (instructionSemantics instr)
+    let instrInfo = instructionLabel
+    pure $ overlay (star (Right instrInfo) (map Left outs))
+                   (transpose $ star (Right instrInfo) (map Left ins))
+    where instructionLabel = (show addr <> "|" <> show instr)
+
+-- | Serialise data flow graph as a .dot string
+drawGraph :: Graph (Either KeyLabel InstructionLabel) -> String
+drawGraph g = export style g
+  where
+    style = defaultStyleViaShow
+        { vertexName = \v -> "v" ++ show (fromJust $ Set.lookupIndex v names)
+        , vertexAttributes = \x -> case x of
+            Left  k      -> [ "shape"  := "circle"
+                            , "label"  := k ]
+            Right i -> [ "shape" := "record"
+                            , "label" := i ] }
+    names = vertexSet g
+    -- instructionLabel a i = fromString (show a <> "|" <> show i)
+
+-- | Compute static data flow graph of a program. In case of supplying a
+--   monadic, i.e. data-dependent instruction, 'Nothing' is returned.
+programDataGraph :: Program
+                 -> Maybe (Graph (Either KeyLabel InstructionLabel))
+programDataGraph p =
+    let p' = map (second decode) p
+    in  foldl go (Just empty) (map instructionGraph p')
+    where go _   Nothing  = Nothing
+          go acc g        = overlay <$> acc <*> g
+
+--------------------------------------------------------------------------------
+--------------- Semantics of instructions --------------------------------------
+--------------------------------------------------------------------------------
 
 -- | Halt the execution.
 --   Applicative.
@@ -157,14 +223,29 @@ jump :: SImm8 -> FS Functor ()
 jump simm read write = void $
     write IC (fmap (SAdd (SConst . fromIntegral $ simm)) (read IC))
 
+-- | Note this the this polymorphic semantics of conditional jumps only works
+--   for simulation and dependency analysis. For symbolic execution it has
+--   to be implemented separately. See 'Machine.Symbolic.jumpZeroSym'.
 jumpZero :: SImm8 -> FS Selective ()
 jumpZero _ _ _ = error "jumpZero not implemented"
 
+-- | Note this the this polymorphic semantics of conditional jumps only works
+--   for simulation and dependency analysis. For symbolic execution it has
+--   to be implemented separately. See 'Machine.Symbolic.jumpCtSym'.
 jumpCt :: SImm8 -> FS Selective ()
-jumpCt _ _ _ = error "jumpCt not implemented"
+jumpCt offset read write =
+    whenS (unliteral <$> read (F Condition))
+          (void $ write IC (SAdd <$> pure (SConst (fromIntegral offset))
+                                 <*> read IC))
 
+-- | Note this the this polymorphic semantics of conditional jumps only works
+--   for simulation and dependency analysis. For symbolic execution it has
+--   to be implemented separately. See 'Machine.Symbolic.jumpCfSym'.
 jumpCf :: SImm8 -> FS Selective ()
-jumpCf _ _ _ = error "jumpCf not implemented"
+jumpCf offset read write =
+    whenS (not . unliteral <$> read (F Condition))
+          (void $ write IC (SAdd <$> pure (SConst (fromIntegral offset))
+                                 <*> read IC))
 
 cmpEq :: Register -> MemoryAddress -> FS Applicative ()
 cmpEq reg addr = \read write -> void $
