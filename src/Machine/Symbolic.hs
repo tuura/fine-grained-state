@@ -15,6 +15,7 @@ import qualified Control.Monad.State as Monad
 import qualified Data.Map.Strict as Map
 import qualified Data.Tree       as Tree
 import           Machine.Types
+import qualified Machine.SMT as SMT
 import           Machine.Types.State
 import           Machine.Types.Trace
 import           Machine.Types.OneOrTwo
@@ -37,7 +38,7 @@ instance MonadState s m => MonadState s (ListT m) where
 --     deriving (Functor, Applicative, Prelude.Monad, MonadState State)
 newtype SymEngine a = SymEngine
     { runSymEngine :: Monad.StateT State (ListT IO) a }
-    deriving (Functor, Applicative, Alternative, Prelude.Monad, MonadState State)
+    deriving (Functor, Applicative, Alternative, Prelude.Monad, MonadIO, MonadState State)
 
 instance Selective SymEngine where
     select = selectM
@@ -54,21 +55,32 @@ symEngineConstraint constr = do
 whenSym :: SymEngine (Sym Bool) -> SymEngine () -> SymEngine ()
 whenSym condition computation = do
     -- Evaluate the condition
-    pathConstraint <- condition
+    newPathConstraint <- condition
+    pathConstraints <- map snd . pathConstraintList <$> get
     -- Check the condition is trivial, i.e. doesn't contain any free variables
-    case (tryFoldConstant pathConstraint) of
+    case (tryFoldConstant newPathConstraint) of
         -- Perform the computation if the condition trivially holds
         SConst True  -> computation
         -- Do nothing if it trivially doesn't hold
         SConst False -> pure ()
         -- Finally, branch if the condition is a non-trivial symbolic expression
-        _ ->
+        _ -> do
+            -- let satResult1 = liftIO $ SMT.satBool (SMT.toSMT (newPathConstraint:pathConstraints))
+            --     satResult2 = liftIO $ SMT.satBool (SMT.toSMT ((SNot newPathConstraint):pathConstraints))
+            -- in -- Add the path constraint to the context and execute the computation
+            --    (whenS (SMT.isSat <$> satResult1) $ symEngineConstraint newPathConstraint *> computation)
+            --    <|>
+            --    -- Alternatively, add the negated path constraint and do nothing
+            --    (whenS (SMT.isSat <$> satResult2) $ symEngineConstraint (SNot newPathConstraint))
+            satResult1 <- liftIO $ SMT.satBool (SMT.toSMT (newPathConstraint:pathConstraints))
+            satResult2 <- liftIO $ SMT.satBool (SMT.toSMT ((SNot newPathConstraint):pathConstraints))
+            liftIO $ putStrLn $ "Solving: " <> show (newPathConstraint:pathConstraints)
+            liftIO $ print satResult1
+            let p = whenS (SMT.isSat <$> pure satResult1) $ symEngineConstraint newPathConstraint *> computation
+                q = whenS (SMT.isSat <$> pure satResult2) $ symEngineConstraint (SNot newPathConstraint)
             -- Add the path constraint to the context and execute the computation
-            (symEngineConstraint pathConstraint *> computation)
-            <|>
+            p <|> q
             -- Alternatively, add the negated path constraint and do nothing
-            symEngineConstraint (SNot pathConstraint)
-
 
 -- | The semantics for @JumpZero@ for now has to be hijacked and implemented in terms of the
 --   symbolic-aware whenSym (instead of the desired Selective whenS).

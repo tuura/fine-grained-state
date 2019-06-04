@@ -66,8 +66,9 @@ sumExampleIO arraySize = do
                                 [ (254, SConst 1)
                                 , (255, SConst 2)])
         initialState = boot (assemble sumArrayLowLevel) mem
-        trace = runModel steps initialState
+    trace <- runModel steps initialState
     let ps = paths (unTrace trace)
+    putStrLn $ renderTrace trace
     putStrLn $ "Non-trivial paths: " <> show (length ps)
     mapM_ (processPath (allSym $ map inRange summands)) ps
     where

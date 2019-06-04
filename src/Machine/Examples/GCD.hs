@@ -44,18 +44,26 @@ inRange x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
 result :: Path (Node State) -> Sym Value
 result = (\s -> (Map.!) (registers s) R1) . nodeBody . last
 
-gcdExample :: IO ()
-gcdExample = do
+gcdExample :: Int -> IO ()
+gcdExample steps = do
     putStrLn "--------------------------------------------------"
     let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
-    let steps = 1000
+    let limit = 1000
         -- x = SConst 2
         -- y = SConst 3
         x = SAny 0
         y = SAny 1
         mem = initialiseMemory [(0, x), (1, y)]
-        initialState = boot (assemble gcdProgram) mem
-        trace = runModel steps initialState
+        initialState =
+            appendConstraints [ ( "x is in range"
+                                , (x `SGt` (SConst 0)) `SAnd` (x `SLt` (SConst limit))
+                                )
+                              , ( "y is in range"
+                                , (y `SGt` (SConst 0)) `SAnd` (y `SLt` (SConst limit))
+                                )
+                              ] $ boot (assemble gcdProgram) mem
+    trace <- runModel steps initialState
+    -- putStrLn $ renderTrace trace
     let ps = paths (unTrace trace)
     putStrLn $ "Non-trivial paths: " <> show (length ps)
     putStrLn "--------------------------------------------------"
@@ -68,8 +76,8 @@ gcdExample = do
             let overflowSymVC =
                     preconditions           `SAnd`
                     (SNot $ pathHalts path)
-                    `SAnd`
-                    findOverflowInPath path
+                    -- `SAnd`
+                    -- findOverflowInPath path
                 overflowSbvVC = SMT.toSMT [overflowSymVC]
             satStart <- getCPUTime
             satResult <- SBV.satWith SMT.prover overflowSbvVC

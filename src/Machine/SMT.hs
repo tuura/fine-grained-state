@@ -13,7 +13,6 @@ import           Machine.Decode
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
-import           Machine.Symbolic
 
 -- | Walk the constraint gathering up the free variables.
 gatherFree :: Sym a -> Set.Set (Sym Value)
@@ -51,6 +50,14 @@ toSMT cs = do
   sValMap <- createSym (Set.toList freeVars)
   smts <- traverse (symToSMT sValMap) cs
   pure $ conjoin smts
+
+satBool :: SBV.Symbolic SBV.SBool -> IO SBV.SatResult
+satBool =  SBV.satWith prover
+
+isSat :: SBV.SatResult -> Bool
+isSat = \case
+    (SBV.SatResult (SBV.Satisfiable _ _)) -> True
+    _                                     -> False
 
 -- | Translate type indices of the Sym GADT into SBV phantom types
 type family ToSBV a where

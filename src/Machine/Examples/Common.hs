@@ -76,7 +76,3 @@ countJumps = length . filter isJump
 endOfPath :: Path (Node s) -> s
 endOfPath = nodeBody . last
 
-isSat :: SBV.SatResult -> Bool
-isSat = \case
-    (SBV.SatResult (SBV.Satisfiable _ _)) -> True
-    _                                     -> False

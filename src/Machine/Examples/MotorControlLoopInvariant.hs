@@ -164,10 +164,10 @@ motorControlBodyExample steps = do
 
     -- Now we perform symbolic simulation with @runModel@ and obtain
     -- a binary tree-shaped trace.
-    let trace = runModel steps initialState
+    trace <- runModel steps initialState
     -- and split the tree on paths
     -- (at the moment, we do not share the common prefixes)
-        ps = paths (unTrace trace)
+    let ps = paths (unTrace trace)
     putStrLn $ "Non-trivial paths: " <> show (length ps)
     putStrLn "--------------------------------------------------"
 

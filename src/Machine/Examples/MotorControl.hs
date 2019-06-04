@@ -108,22 +108,29 @@ motorControl = do -- Don't forget the 'do'!
 
 motorControlExample :: Int -> IO ()
 motorControlExample steps = do
-    let constr x = x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000))
     let -- steps = 100 -- steps must be enought for termination with dist = 101
         -- a_max = SConst 2
         -- v_max = SConst 30
-        a_max = SConst 2 -- SAny 0
+        a_max = SAny 0
         v_max = SAny 1
+        limit = 1000
         mem = initialiseMemory [(0, a_max), (1, v_max), (2, SConst 101)]
-        initialState = boot (assemble motorControl) mem
-        trace =
-                -- constraint "no overflow" overflowSet $
-                -- constraint "x is in range" (const (x `SGt` (SConst 20))) $
-                -- constraint "x is in range" (const (x `SLt` (SConst 30))) $
-                -- constraint "y is in range" (const (y `SGt` (SConst 0)))  $
-                -- constraint "y is in range" (const (y `SLt` (SConst 10))) $
-                -- constraint halted $
-                runModel steps initialState
+        initialState =
+            appendConstraints [ ( "a_max is in range"
+                                , (a_max `SGt` (SConst 0)) `SAnd` (a_max `SLt` (SConst limit))
+                                )
+                              , ( "v_max is in range"
+                                , (v_max `SGt` (SConst 0)) `SAnd` (v_max `SLt` (SConst limit))
+                                )
+                              ] $
+            boot (assemble motorControl) mem
+    putStrLn $ "Initial constraints: " <> show (pathConstraintList initialState)
+    trace <-
+            -- constraint "no overflow" overflowSet $
+            -- constraint  .
+            -- constraint "v_max is in range" (const ((v_max `SGt` (SConst 0)) `SAnd` (v_max `SLt` (SConst 100)))) <$>
+            -- constraint halted $
+            runModel steps initialState
     putStrLn $ "Trace depth: " ++ show (traceDepth trace)
     let ps = paths (unTrace trace)
     putStrLn $ "Path in trace: " ++ show (length ps)
@@ -138,9 +145,6 @@ motorControlExample steps = do
     -- -- print (tryFoldConstant $ v_final finalState)
     -- -- print (halted finalState)
     -- mapM_ putStrLn (renderFinalValues finalState)
-
-endOfPath :: Path (Node s) -> s
-endOfPath = nodeBody . last
 
 finalStates :: Trace s -> [s]
 finalStates = map endOfPath . paths . unTrace
