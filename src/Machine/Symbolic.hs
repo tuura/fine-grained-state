@@ -8,6 +8,8 @@ import           Data.Functor (void)
 import           ListT
 import           Control.Selective
 import           Control.Monad.State.Class
+import           Control.Monad.IO.Class
+import           Data.IORef
 import           Control.Monad.State (evalState)
 import qualified Control.Monad.State as Monad
 import qualified Data.Map.Strict as Map
@@ -34,7 +36,7 @@ instance MonadState s m => MonadState s (ListT m) where
 --     { runSymEngine :: Monad.StateT State OneOrTwo a }
 --     deriving (Functor, Applicative, Prelude.Monad, MonadState State)
 newtype SymEngine a = SymEngine
-    { runSymEngine :: Monad.StateT State [] a }
+    { runSymEngine :: Monad.StateT State (ListT IO) a }
     deriving (Functor, Applicative, Alternative, Prelude.Monad, MonadState State)
 
 instance Selective SymEngine where
@@ -102,41 +104,47 @@ loadMISym rX dmemaddr = do
 
 -- | Perform one step of symbolic execution
 -- symStep :: State -> OneOrTwo State
-symStep :: State -> [State]
-symStep state =
-    let (instrCode, fetched) = pipeline state
-        instrSemantics =
+symStep :: State -> IO [State]
+symStep state = do
+    (instrCode, fetched) <- pipeline state
+    let instrSemantics =
              case decode instrCode of
                 (Instruction (JumpZero offset)) -> jumpZeroSym offset
                 (Instruction (LoadMI reg addr)) -> loadMISym reg addr
                 (Instruction (JumpCt offset))   -> jumpCtSym offset
                 (Instruction (JumpCf offset))   -> jumpCfSym offset
                 i                               -> instructionSemantics i readKey writeKey
-    in map snd $ Monad.runStateT (runSymEngine instrSemantics) fetched
+    t <- ListT.toList $ Monad.runStateT (runSymEngine instrSemantics) fetched
+    pure $ map snd t
 
-pipeline :: State -> (InstructionCode, State)
+pipeline :: State -> IO (InstructionCode, State)
 pipeline state =
     let steps = do fetchInstruction
                    incrementInstructionCounter
                    readInstructionRegister
-    in case Monad.runStateT (runSymEngine steps) state of
-            [result] -> result
-            _ -> error
-                "piplineStep: impossible happened: fetchInstruction returned not a singleton."
+    in do
+        t <- ListT.toList $ Monad.runStateT (runSymEngine steps) state
+        case t of
+          [result] -> pure result
+          _ -> error
+                 "piplineStep: impossible happened: fetchInstruction returned not a singleton."
 
-runModelM :: MonadState NodeId m => Int -> State -> m (Trace State)
-runModelM steps state = do
-    modify (+ 1)
-    nodeId <- get
-    let halted    = (Map.!) (flags state) Halted == SConst True
-        newStates = symStep state
+runModelImpl :: IORef NodeId -> Int -> State -> IO (Trace State)
+runModelImpl nodeIdRef steps state = do
+    modifyIORef nodeIdRef (+ 1)
+    nodeId <- readIORef nodeIdRef
+    let halted = (Map.!) (flags state) Halted == SConst True
     if | steps <= 0 -> pure (mkTrace (Node nodeId state) [])
        | otherwise  -> if halted then pure (mkTrace (Node nodeId state) [])
-                                 else do children <- Prelude.traverse (runModelM (steps - 1)) newStates
+                                 else do newStates <- liftIO $ symStep state
+                                         children <- Prelude.traverse
+                                            (runModelImpl nodeIdRef (steps - 1)) newStates
                                          pure $ mkTrace (Node nodeId state) (children)
 
-runModel :: Int -> State -> Trace State
-runModel steps state = evalState (runModelM steps state) 0
+runModel :: Int -> State -> IO (Trace State)
+runModel steps state = do
+    nodeIdRef <- newIORef (0 :: NodeId)
+    runModelImpl nodeIdRef steps state
 
 -- | Instance of the Machine.Metalanguage read command for symbolic execution
 readKey :: Key a -> SymEngine (Sym a)
