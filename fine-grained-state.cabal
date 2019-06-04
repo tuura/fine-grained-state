@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a73a9660ea998068216f3b44637846538bddf5050a7ae001b523606cf4c18f29
+-- hash: eee366574c11cc725318dc8041cc01e00782da31509a64354353540640f317bc
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -41,6 +41,7 @@ library
       Machine.SMT
       Machine.Symbolic
       Machine.Types
+      Machine.Types.OneOrTwo
       Machine.Types.State
       Machine.Types.Trace
       Machine.Types.Trace.Viz

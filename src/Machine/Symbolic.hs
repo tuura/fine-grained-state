@@ -10,6 +10,7 @@ import qualified Data.Tree       as Tree
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
+import           Machine.Types.OneOrTwo
 import           Machine.Encode
 import           Machine.Decode
 import           Machine.Semantics
@@ -18,17 +19,21 @@ import           Machine.Semantics
 ---------------- Symbolic Engine -----------------------------------------------
 --------------------------------------------------------------------------------
 
-
 -- | The Symbolic Execution Engine maintains the state of the machine and a list
 --   of path constraints.
 data SymEngine a = SymEngine
-    { runSymEngine :: State -> [(a, State)] }
+    { runSymEngine :: State -> OneOrTwo (a, State) }
     deriving Functor
 
 -- | A standard 'Applicative' instance available for any 'Monad'.
 instance Applicative SymEngine where
     pure  = return
     (<*>) = ap
+
+split :: (Sym Bool, State) -> State -> OneOrTwo ((), State)
+split (pathConstraint, sNoExec) sOnExec =
+    Two ((), appendConstraints [("", pathConstraint     )] sOnExec)
+        ((), appendConstraints [("", SNot pathConstraint)] sNoExec)
 
 -- | Conditionally perform an effect.
 whenSym :: SymEngine (Sym Bool) -> SymEngine () -> SymEngine ()
@@ -40,66 +45,47 @@ whenSym cond comp = -- select (bool (Right ()) (Left ()) <$> x) (const <$> y)
                 SConst False -> pure ((), s')
                 _ -> do
                     b@(compRes, s'') <- runSymEngine comp s'
-                    (f a (snd b))
-        -- pure ((), appendConstraints [evalCond] s')
-        -- pure ((), appendConstraints [(SNot evalCond)] s'')
-    -- concat [f a (snd b) | a <- runSymEngine cond s, b <- runSymEngine comp (snd a)]
-    where
-        f :: (Sym Bool, State) -> State -> [((), State)]
-        f (b, sNoExec) sOnExec =
-            [ ((), appendConstraints [("", b)] sOnExec)
-            , ((), appendConstraints [("", SNot b)] sNoExec)]
-
--- -- | Conditionally perform an effect.
--- whenSym :: SymEngine (Sym Bool) -> SymEngine () -> SymEngine ()
--- whenSym cond comp = -- select (bool (Right ()) (Left ()) <$> x) (const <$> y)
---     SymEngine $ \s -> do
---         a@(evalCond, s') <- runSymEngine cond s
---         b@(compRes, s'') <- runSymEngine comp s'
---         (f a (snd b))
---         -- pure ((), appendConstraints [evalCond] s')
---         -- pure ((), appendConstraints [(SNot evalCond)] s'')
---     -- concat [f a (snd b) | a <- runSymEngine cond s, b <- runSymEngine comp (snd a)]
---     where
---         f :: (Sym Bool, State) -> State -> [((), State)]
---         f (b, sNoExec) sOnExec =
---             [ ((), appendConstraints [("", b)] sOnExec)
---             , ((), appendConstraints [("", SNot b)] sNoExec)]
+                    (split a (snd b))
 
 instance Selective SymEngine where
     select = selectM
 
 instance Prelude.Monad SymEngine where
-    return a       = SymEngine $ \s -> [(a, s)]
+    return a       = SymEngine $ \s -> One (a, s)
     SymEngine r >>= f = SymEngine $ \s ->
         let outcomes = r s
-        in concat $ map (\(result, state) -> runSymEngine (f result) state) outcomes
+            res = collapse $ fmap (\(result, state) -> runSymEngine (f result) state) outcomes
+        in case res of
+             Just x  -> x
+             Nothing -> error "SymEngine.Monad, impossible happened, more than two branches in tree."
 
 instance (MonadState State) SymEngine where
-    get   = SymEngine $ \s -> [(s, s)]
-    put s = SymEngine $ \_ -> [((), s)]
+    get   = SymEngine $ \s -> One (s, s)
+    put s = SymEngine $ \_ -> One ((), s)
 
--- | The semantics for JumpZero for now has to be hijacked and implemented in terms of the
+-- | The semantics for @JumpZero@ for now has to be hijacked and implemented in terms of the
 --   symbolic-aware whenSym (instead of the desired Selective whenS).
 jumpZeroSym :: SImm8 -> SymEngine ()
 jumpZeroSym simm =
     whenSym (readKey (F Zero))
             (void $ writeKey IC ((SAdd (SConst . fromIntegral $ simm)) <$> readKey IC))
 
--- | The semantics for JumpCt for now has to be hijacked and implemented in terms of the
+-- | The semantics for @JumpCt@ for now has to be hijacked and implemented in terms of the
 --   symbolic-aware whenSym (instead of the desired Selective whenS).
 jumpCtSym :: SImm8 -> SymEngine ()
 jumpCtSym simm =
     whenSym (readKey (F Condition))
             (void $ writeKey IC ((SAdd (SConst . fromIntegral $ simm)) <$> readKey IC))
 
--- | The semantics for JumpCt for now has to be hijacked and implemented in terms of the
+-- | The semantics for @JumpCf@ for now has to be hijacked and implemented in terms of the
 --   symbolic-aware whenSym (instead of the desired Selective whenS).
 jumpCfSym :: SImm8 -> SymEngine ()
 jumpCfSym simm =
     whenSym (SNot <$> readKey (F Condition))
             (void $ writeKey IC ((SAdd (SConst . fromIntegral $ simm)) <$> readKey IC))
 
+-- | The semantics for @loadMI@ for now has to be hijacked and implemented in terms of the
+--   symbolic-aware whenSym (instead of the desired Selective whenS).
 loadMISym :: Register -> MemoryAddress -> SymEngine ()
 loadMISym rX dmemaddr = do
     writeRegister rX =<< readMemory =<< toMemoryAddress <$> readMemory dmemaddr
@@ -110,7 +96,7 @@ loadMISym rX dmemaddr = do
             _ -> error "loadMISym: can't perform indirect memory load with a symbolic pointer"
 
 -- | Perform one step of symbolic execution
-symStep :: State -> [State]
+symStep :: State -> OneOrTwo State
 symStep state =
     let (instrCode, fetched) = pipeline state
         instrSemantics =
@@ -120,7 +106,7 @@ symStep state =
                 (Instruction (JumpCt offset))   -> jumpCtSym offset
                 (Instruction (JumpCf offset))   -> jumpCfSym offset
                 i                               -> instructionSemantics i readKey writeKey
-    in map snd $ runSymEngine instrSemantics fetched
+    in fmap snd $ runSymEngine instrSemantics fetched
 
 pipeline :: State -> (InstructionCode, State)
 pipeline state =
@@ -128,7 +114,7 @@ pipeline state =
                    incrementInstructionCounter
                    readInstructionRegister
     in case runSymEngine steps state of
-            [result] -> result
+            One result -> result
             _ -> error
                 "piplineStep: impossible happened: fetchInstruction returned not a singleton."
 
@@ -141,7 +127,7 @@ runModelM steps state = do
     if | steps <= 0 -> pure (mkTrace (Node nodeId state) [])
        | otherwise  -> if halted then pure (mkTrace (Node nodeId state) [])
                                  else do children <- traverse (runModelM (steps - 1)) newStates
-                                         pure $ mkTrace (Node nodeId state) children
+                                         pure $ mkTrace (Node nodeId state) (toList children)
 
 runModel :: Int -> State -> Trace State
 runModel steps state = evalState (runModelM steps state) 0
