@@ -16,6 +16,7 @@ dependencies:
 - base >= 4.7 && < 5
 - bifunctors
 - mtl
+- list-t
 - containers
 - algebraic-graphs
 - selective
@@ -31,7 +32,7 @@ default-extensions:
 - TypeOperators
 - DataKinds
 - ScopedTypeVariables
-- DerivingVia
+- GeneralizedNewtypeDeriving
 - DeriveFunctor
 - StandaloneDeriving
 - MultiParamTypeClasses

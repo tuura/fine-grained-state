@@ -1,10 +1,15 @@
+{-# Language UndecidableInstances #-}
+
 module Machine.Symbolic where
 
 import           Control.Monad (ap)
+import           Control.Applicative (Alternative, (<|>))
 import           Data.Functor (void)
+import           ListT
 import           Control.Selective
 import           Control.Monad.State.Class
 import           Control.Monad.State (evalState)
+import qualified Control.Monad.State as Monad
 import qualified Data.Map.Strict as Map
 import qualified Data.Tree       as Tree
 import           Machine.Types
@@ -18,50 +23,50 @@ import           Machine.Semantics
 --------------------------------------------------------------------------------
 ---------------- Symbolic Engine -----------------------------------------------
 --------------------------------------------------------------------------------
+instance MonadState s m => MonadState s (ListT m) where
+    get   = Monad.lift get
+    put   = Monad.lift . put
+    state = Monad.lift . state
 
 -- | The Symbolic Execution Engine maintains the state of the machine and a list
 --   of path constraints.
-data SymEngine a = SymEngine
-    { runSymEngine :: State -> OneOrTwo (a, State) }
-    deriving Functor
-
--- | A standard 'Applicative' instance available for any 'Monad'.
-instance Applicative SymEngine where
-    pure  = return
-    (<*>) = ap
-
-split :: (Sym Bool, State) -> State -> OneOrTwo ((), State)
-split (pathConstraint, sNoExec) sOnExec =
-    Two ((), appendConstraints [("", pathConstraint     )] sOnExec)
-        ((), appendConstraints [("", SNot pathConstraint)] sNoExec)
-
--- | Conditionally perform an effect.
-whenSym :: SymEngine (Sym Bool) -> SymEngine () -> SymEngine ()
-whenSym cond comp = -- select (bool (Right ()) (Left ()) <$> x) (const <$> y)
-    SymEngine $ \s -> do
-        a@(evalCond, s') <- runSymEngine cond s
-        case (tryFoldConstant evalCond) of
-                SConst True -> runSymEngine comp s'
-                SConst False -> pure ((), s')
-                _ -> do
-                    b@(compRes, s'') <- runSymEngine comp s'
-                    (split a (snd b))
+-- newtype SymEngine a = SymEngine
+--     { runSymEngine :: Monad.StateT State OneOrTwo a }
+--     deriving (Functor, Applicative, Prelude.Monad, MonadState State)
+newtype SymEngine a = SymEngine
+    { runSymEngine :: Monad.StateT State [] a }
+    deriving (Functor, Applicative, Alternative, Prelude.Monad, MonadState State)
 
 instance Selective SymEngine where
     select = selectM
 
-instance Prelude.Monad SymEngine where
-    return a       = SymEngine $ \s -> One (a, s)
-    SymEngine r >>= f = SymEngine $ \s ->
-        let outcomes = r s
-            res = collapse $ fmap (\(result, state) -> runSymEngine (f result) state) outcomes
-        in case res of
-             Just x  -> x
-             Nothing -> error "SymEngine.Monad, impossible happened, more than two branches in tree."
+symEngineConstraint :: Sym Bool -> SymEngine ()
+symEngineConstraint constr = do
+    modify (appendConstraints [("", constr)])
 
-instance (MonadState State) SymEngine where
-    get   = SymEngine $ \s -> One (s, s)
-    put s = SymEngine $ \_ -> One ((), s)
+--------------------------------------------------------------------------------
+--- Selective-like combinators for the symbolic execution engine ---------------
+--------------------------------------------------------------------------------
+
+-- | Conditionally perform a computation.
+whenSym :: SymEngine (Sym Bool) -> SymEngine () -> SymEngine ()
+whenSym condition computation = do
+    -- Evaluate the condition
+    pathConstraint <- condition
+    -- Check the condition is trivial, i.e. doesn't contain any free variables
+    case (tryFoldConstant pathConstraint) of
+        -- Perform the computation if the condition trivially holds
+        SConst True  -> computation
+        -- Do nothing if it trivially doesn't hold
+        SConst False -> pure ()
+        -- Finally, branch if the condition is a non-trivial symbolic expression
+        _ ->
+            -- Add the path constraint to the context and execute the computation
+            (symEngineConstraint pathConstraint *> computation)
+            <|>
+            -- Alternatively, add the negated path constraint and do nothing
+            symEngineConstraint (SNot pathConstraint)
+
 
 -- | The semantics for @JumpZero@ for now has to be hijacked and implemented in terms of the
 --   symbolic-aware whenSym (instead of the desired Selective whenS).
@@ -92,11 +97,12 @@ loadMISym rX dmemaddr = do
     where toMemoryAddress :: Sym Value -> MemoryAddress
           toMemoryAddress val = case (getValue val) of
             (Just val) ->
-                Machine.Decode.fromBitsLE (take 16 $ Machine.Decode.blastLE val)
+                Machine.Decode.fromBitsLE (Prelude.take 16 $ Machine.Decode.blastLE val)
             _ -> error "loadMISym: can't perform indirect memory load with a symbolic pointer"
 
 -- | Perform one step of symbolic execution
-symStep :: State -> OneOrTwo State
+-- symStep :: State -> OneOrTwo State
+symStep :: State -> [State]
 symStep state =
     let (instrCode, fetched) = pipeline state
         instrSemantics =
@@ -106,15 +112,15 @@ symStep state =
                 (Instruction (JumpCt offset))   -> jumpCtSym offset
                 (Instruction (JumpCf offset))   -> jumpCfSym offset
                 i                               -> instructionSemantics i readKey writeKey
-    in fmap snd $ runSymEngine instrSemantics fetched
+    in map snd $ Monad.runStateT (runSymEngine instrSemantics) fetched
 
 pipeline :: State -> (InstructionCode, State)
 pipeline state =
     let steps = do fetchInstruction
                    incrementInstructionCounter
                    readInstructionRegister
-    in case runSymEngine steps state of
-            One result -> result
+    in case Monad.runStateT (runSymEngine steps) state of
+            [result] -> result
             _ -> error
                 "piplineStep: impossible happened: fetchInstruction returned not a singleton."
 
@@ -126,8 +132,8 @@ runModelM steps state = do
         newStates = symStep state
     if | steps <= 0 -> pure (mkTrace (Node nodeId state) [])
        | otherwise  -> if halted then pure (mkTrace (Node nodeId state) [])
-                                 else do children <- traverse (runModelM (steps - 1)) newStates
-                                         pure $ mkTrace (Node nodeId state) (toList children)
+                                 else do children <- Prelude.traverse (runModelM (steps - 1)) newStates
+                                         pure $ mkTrace (Node nodeId state) (children)
 
 runModel :: Int -> State -> Trace State
 runModel steps state = evalState (runModelM steps state) 0
