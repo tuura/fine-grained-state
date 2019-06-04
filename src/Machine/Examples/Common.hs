@@ -1,7 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Machine.Examples.Common where
-
-import qualified Data.SBV as SBV
 import           Machine.Decode
 import           Machine.Types
 import           Machine.Types.State

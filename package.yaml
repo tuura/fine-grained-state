@@ -25,6 +25,7 @@ dependencies:
 - units-defs
 - text
 - pretty-simple
+- smuggler
 
 default-extensions:
 - TypeFamilies
@@ -48,6 +49,7 @@ default-extensions:
 
 ghc-options:
 - -fwarn-incomplete-uni-patterns
+- -fplugin=Smuggler.Plugin
 
 library:
   source-dirs: src

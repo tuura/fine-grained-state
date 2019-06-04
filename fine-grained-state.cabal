@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 60a3a8ff3e3e72dbe9a1c87a3913c87eabdb87d4db7801d09c23c373d80499b7
+-- hash: 0f45f71ac3b620842ccad84601ec1efba8c2bf9485efb2d81fe432df6e4260ca
 
 name:           fine-grained-state
 version:        0.1.0.0
@@ -50,7 +50,7 @@ library
   hs-source-dirs:
       src
   default-extensions: TypeFamilies TypeApplications TypeOperators DataKinds ScopedTypeVariables GeneralizedNewtypeDeriving DeriveFunctor StandaloneDeriving MultiParamTypeClasses KindSignatures ConstraintKinds FlexibleInstances FlexibleContexts GADTs RankNTypes OverloadedStrings LambdaCase MultiWayIf
-  ghc-options: -fwarn-incomplete-uni-patterns
+  ghc-options: -fwarn-incomplete-uni-patterns -fplugin=Smuggler.Plugin
   build-depends:
       algebraic-graphs
     , base >=4.7 && <5
@@ -61,6 +61,7 @@ library
     , pretty-simple
     , sbv
     , selective
+    , smuggler
     , text
     , units
     , units-defs

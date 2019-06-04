@@ -14,11 +14,8 @@ module Machine.Assembly where
 import qualified Data.Map.Strict as Map
 import           Control.Monad.State
 import           Control.Arrow (second)
-import           Data.Int (Int8)
 import           Machine.Types
 import           Machine.Encode
-import           Machine.Decode
-import           Control.Monad (ap)
 
 decIfNeg :: Integral a => a -> a
 decIfNeg x | x < 0     = x - 1

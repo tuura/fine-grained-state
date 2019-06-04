@@ -3,9 +3,6 @@ module Machine.Examples.GCD where
 import           System.CPUTime
 import           Text.Printf
 import           Prelude hiding (mod)
-import           System.IO.Unsafe (unsafePerformIO)
-import           Control.Selective
-import           Data.Foldable (sequenceA_)
 -- import qualified Data.Tree as Tree
 import qualified Data.SBV         as SBV
 import           Machine.Types
@@ -16,7 +13,6 @@ import           Machine.Symbolic
 import           Machine.Assembly
 import qualified Machine.SMT      as SMT
 import qualified Data.Map.Strict  as Map
-import           Machine.Encode
 import           Machine.Examples.Common
 
 gcdProgram :: Script
