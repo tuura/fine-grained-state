@@ -1,13 +1,13 @@
 module Machine.Types.Trace.Viz where
 
-import qualified Text.Pretty.Simple       as PPrint
-import qualified Data.Text.Lazy as Text
+import qualified Algebra.Graph            as G
+import qualified Algebra.Graph.Export.Dot as G
+import qualified Data.Text.Lazy           as Text
+import           Machine.Decode
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
-import qualified Algebra.Graph            as G
-import qualified Algebra.Graph.Export.Dot as G
-import           Machine.Decode
+import qualified Text.Pretty.Simple       as PPrint
 
 type GTrace s = G.Graph (Node s)
 

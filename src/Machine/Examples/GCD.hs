@@ -41,15 +41,11 @@ gcdProgram = do
 inRange :: Sym Value -> Sym Bool
 inRange x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
 
-result :: Path (Node State) -> Sym Value
-result = (\s -> (Map.!) (registers s) R1) . nodeBody . last
-
-gcdExample :: IO ()
-gcdExample = do
+gcdExample :: Int -> IO ()
+gcdExample steps = do
     putStrLn "--------------------------------------------------"
     let constr x = (x `SGt` (SConst 0) `SAnd` (x `SLt` (SConst 1000)))
-    let steps = 1000
-        -- x = SConst 2
+    let -- x = SConst 2
         -- y = SConst 3
         x = SAny 0
         y = SAny 1
@@ -65,17 +61,29 @@ gcdExample = do
         processPath preconditions (pathId, path) = do
             putStrLn $ "Path id: " <> show pathId
             putStrLn $ "Nodes in path: " <> show (length path)
-            let overflowSymVC =
+            let symVC =
                     preconditions           `SAnd`
                     (SNot $ pathHalts path)
                     `SAnd`
                     findOverflowInPath path
-                overflowSbvVC = SMT.toSMT [overflowSymVC]
-            satStart <- getCPUTime
-            satResult <- SBV.satWith SMT.prover overflowSbvVC
-            satFinish <- getCPUTime
-            putStrLn $ "Find overflow VC : " <> show satResult
-            let diff = (fromIntegral (satFinish - satStart)) / (10^12)
-            printf "SAT Computation time: %0.3f sec\n" (diff :: Double)
-            -- putStrLn $ "GCD symbolic expression: " <> show (result path)
-            putStrLn "--------------------------------------------------"
+                sbvVC = SMT.toSMT [symVC]
+            putStrLn $ "Path id: "       <> show      pathId
+            putStrLn $ "Nodes in path: " <> show (length path)
+            dead <- isDead preconditions path
+            if dead then putStrLn "dead"
+            else do
+                let sbvVC = SMT.toSMT [symVC]
+                satStart  <- getCPUTime
+                satResult <- SBV.satWith SMT.prover sbvVC
+                satFinish <- getCPUTime
+                -- putStrLn $ "Find VC : "      <> show symVC
+                putStrLn $ show satResult
+            putStrLn $ "--------------------------------------------"
+            -- satStart <- getCPUTime
+            -- satResult <- SBV.satWith SMT.prover overflowSbvVC
+            -- satFinish <- getCPUTime
+            -- putStrLn $ "Find overflow VC : " <> show satResult
+            -- let diff = (fromIntegral (satFinish - satStart)) / (10^12)
+            -- printf "SAT Computation time: %0.3f sec\n" (diff :: Double)
+            -- -- putStrLn $ "GCD symbolic expression: " <> show (result path)
+            -- putStrLn "--------------------------------------------------"

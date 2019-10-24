@@ -1,18 +1,18 @@
 module Machine.Semantics where
 
-import Prelude hiding (Read, Monad, div, mod, abs)
-import qualified Prelude (Read, Monad, div, mod, abs)
-import Data.Functor (void)
-import Data.Either (partitionEithers)
-import Control.Selective
-import Control.Arrow (second)
-import Machine.Decode (decode)
-import qualified Data.Set as Set
-import Data.String (fromString)
-import Data.Maybe (fromJust)
-import Algebra.Graph hiding (graph)
-import Algebra.Graph.Export.Dot
-import Machine.Types
+import           Algebra.Graph            hiding (graph)
+import           Algebra.Graph.Export.Dot
+import           Control.Arrow            (second)
+import           Control.Selective
+import           Data.Either              (partitionEithers)
+import           Data.Functor             (void)
+import           Data.Maybe               (fromJust)
+import qualified Data.Set                 as Set
+import           Data.String              (fromString)
+import           Machine.Decode           (decode)
+import           Machine.Types
+import           Prelude                  hiding (Monad, Read, abs, div, mod)
+import qualified Prelude                  (Monad, Read, abs, div, mod)
 
 --------------------------------------------------------------------------------
 ---------------- Instruction Semantics -----------------------------------------
@@ -101,8 +101,8 @@ programDataGraph :: Program
 programDataGraph p =
     let p' = map (second decode) p
     in  foldl go (Just empty) (map instructionGraph p')
-    where go _   Nothing  = Nothing
-          go acc g        = overlay <$> acc <*> g
+    where go _   Nothing = Nothing
+          go acc g       = overlay <$> acc <*> g
 
 --------------------------------------------------------------------------------
 --------------- Semantics of instructions --------------------------------------
@@ -261,8 +261,8 @@ cmpLt reg addr = \read write -> void $
 
 instructionSemantics :: Instruction -> FS Selective ()
 instructionSemantics (Instruction i) r w = case i of
-    Halt -> halt r w
-    Load reg addr -> load reg addr r w
+    Halt           -> halt r w
+    Load reg addr  -> load reg addr r w
     -- -- LoadMI reg addr -> loadMI reg addr r w
     Set reg simm8  -> set reg simm8 r w
     Store reg addr -> store reg addr r w

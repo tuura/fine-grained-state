@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Machine.Assembly
@@ -6,25 +7,29 @@
 -- Maintainer  :  mail@geo2a.info
 -- Stability   :  experimental
 --
--- An shallowly-embedded assembly language.
+-- A shallowly-embedded assembly language.
 --
 -----------------------------------------------------------------------------
 module Machine.Assembly where
 
-import qualified Data.Map.Strict as Map
+import           Control.Arrow       (second)
+import           Control.Monad       (ap)
 import           Control.Monad.State
-import           Control.Arrow (second)
-import           Data.Int (Int8)
-import           Machine.Types
-import           Machine.Encode
+import           Data.Int            (Int8)
+import qualified Data.Map.Strict     as Map
+import qualified Data.Text           as Text
 import           Machine.Decode
-import           Control.Monad (ap)
+import           Machine.Encode
+import           Machine.Types
 
 decIfNeg :: Integral a => a -> a
 decIfNeg x | x < 0     = x - 1
            | otherwise = x
 
-goto :: String -> Script
+type Label = Text.Text
+
+-- | Unconditional go to a label
+goto :: Label -> Script
 goto name = do
     s <- get
     here <- instructionCounter <$> get
@@ -34,7 +39,8 @@ goto name = do
              let offset = fromIntegral $ there - here - 1
              jmpi offset
 
-gotoZ :: String -> Script
+-- | Go to a label when @Zero@ flag is set
+gotoZ :: Label -> Script
 gotoZ name = do
     s <- get
     here <- instructionCounter <$> get
@@ -44,7 +50,8 @@ gotoZ name = do
              let offset = fromIntegral $ there - here - 1
              jmpiZ offset
 
-goto_ct :: String -> Script
+-- | Go to a label
+goto_ct :: Label -> Script
 goto_ct name = do
     s <- get
     here <- instructionCounter <$> get
@@ -54,7 +61,7 @@ goto_ct name = do
              let offset = fromIntegral $ there - here - 1
              jmpi_ct offset
 
-goto_cf :: String -> Script
+goto_cf :: Label -> Script
 goto_cf name = do
     s <- get
     here <- instructionCounter <$> get
@@ -64,7 +71,7 @@ goto_cf name = do
              let offset = fromIntegral $ there - here - 1
              jmpi_cf offset
 
-type Labels = Map.Map String InstructionAddress
+type Labels = Map.Map Label InstructionAddress
 
 data AssemblerState =
     MkAssemblerState { program            :: [(InstructionAddress, Instruction)]
@@ -91,18 +98,18 @@ instr i = do
     let ic = instructionCounter s
     put $ s {program = (ic, i):program s, instructionCounter = ic + 1}
 
-(@@) :: String -> Script -> Script
+(@@) :: Label -> Script -> Script
 name @@ src = do
     label name
     src
 
-label :: String -> Script
+label :: Label -> Script
 label name = do
     s <- get
     let ic = instructionCounter s
     put $ s {labels = Map.insert name ic $ labels s}
 
--- Instructions
+-- Instruction mnemonics
 -- and   rX dmemaddr = instr (Instruction $ And rX dmemaddr)
 -- or    rX dmemaddr = instr (Instruction $ Or  rX dmemaddr)
 -- xor    rX dmemaddr = instr (Instruction $ Xor  rX dmemaddr)

@@ -1,18 +1,18 @@
 module Machine.Symbolic where
 
-import           Control.Monad (ap)
-import           Data.Functor (void)
-import           Control.Selective
+import           Control.Monad             (ap)
+import           Control.Monad.State       (evalState)
 import           Control.Monad.State.Class
-import           Control.Monad.State (evalState)
-import qualified Data.Map.Strict as Map
-import qualified Data.Tree       as Tree
+import           Control.Selective
+import           Data.Functor              (void)
+import qualified Data.Map.Strict           as Map
+import qualified Data.Tree                 as Tree
+import           Machine.Decode
+import           Machine.Encode
+import           Machine.Semantics
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
-import           Machine.Encode
-import           Machine.Decode
-import           Machine.Semantics
 
 --------------------------------------------------------------------------------
 ---------------- Symbolic Engine -----------------------------------------------
@@ -35,7 +35,8 @@ whenSym :: SymEngine (Sym Bool) -> SymEngine () -> SymEngine ()
 whenSym cond comp = -- select (bool (Right ()) (Left ()) <$> x) (const <$> y)
     SymEngine $ \s -> do
         a@(evalCond, s') <- runSymEngine cond s
-        case (tryFoldConstant evalCond) of
+        case (simplify 100 evalCond) of
+        -- case (evalCond) of
                 SConst True -> runSymEngine comp s'
                 SConst False -> pure ((), s')
                 _ -> do

@@ -1,7 +1,7 @@
 module Machine.Encode where
 
-import Data.Bits
-import Machine.Types
+import           Data.Bits
+import           Machine.Types
 
 encode :: Instruction -> InstructionCode
 encode = \case
@@ -72,7 +72,7 @@ encode = \case
 
 fromBitsLE :: (FiniteBits a, Num a) => [Bool] -> a
 fromBitsLE = go 0 0
-  where go acc _  []     = acc
+  where go acc _  []    = acc
         go acc i (x:xs) = go (if x then (setBit acc i) else acc) (i+1) xs
 
 blastLE :: FiniteBits a => a -> [Bool]

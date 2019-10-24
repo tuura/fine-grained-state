@@ -2,7 +2,9 @@
 module Machine.Examples.Common where
 
 import qualified Data.SBV as SBV
+import           Control.Selective
 import           Machine.Decode
+import qualified Machine.SMT as SMT
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
@@ -80,3 +82,69 @@ isSat :: SBV.SatResult -> Bool
 isSat = \case
     (SBV.SatResult (SBV.Satisfiable _ _)) -> True
     _                                     -> False
+
+-- | The path constraint on the final state of the path will be an
+--  accumulation of all relevant path constraints
+-- pathConstraint :: Path (Node State) -> Sym Bool
+-- pathConstraint path =
+--     allSym $ map snd . pathConstraintList . nodeBody . last $ path
+
+pathConstraint :: State -> Sym Bool
+pathConstraint =
+    allSym . map snd . pathConstraintList
+
+-- | Ask the SMT solver if the path is dead, i.e. are the path constraints
+--   are unsatisfiable, considering the preconditions.
+isDead :: (State -> Sym Bool) -> Path (Node State) -> IO Bool
+isDead stateSpace path =
+    let finalState = nodeBody (last path)
+    in not . isSat <$>
+       SBV.satWith SMT.prover
+         (SMT.toSMT [pathConstraint finalState `SAnd` stateSpace finalState])
+
+solvePath :: Path (Node State)
+          -> (State -> Sym Bool)
+          -> (State -> Sym Bool)
+          -> (State -> Sym Bool)
+          -> IO String
+solvePath path pre inv post =
+    if (null $ path) then
+        error "Empty path!" -- pure ("Empty path", SBV.Unsatisfiable)
+    else do
+        let start  = nodeBody . head $ path
+            finish = nodeBody . last $ path
+        putStrLn "Checking preconditions..."
+        let precondition = pre start
+        preconditionSat <- SBV.satWith SMT.prover
+            (SMT.toSMT [pathConstraint start `SAnd` pre start])
+        -- Report if preconditions are unsatisfiable and exit
+        if (not . isSat $ preconditionSat) then
+            pure "Preconditions do not hold" -- , preconditionSat)
+        else do
+    -- Otherwise -- check the invariant @inv@ in every intermediate state, if
+    -- the are any
+            putStrLn "Checking the invariant..."
+            nodeSats <- filter isSat <$> mapM (solveNode (const precondition) inv) path
+            print nodeSats
+            pure ""
+            -- case nodeSats of
+            --     []     -> pure "Path is safe" -- , preconditionSat)
+            --     (x:xs) -> pure "Path is not safe" -- , x)
+
+
+
+solveNode :: (State -> Sym Bool)
+          -> (State -> Sym Bool)
+          -> Node State
+          -> IO SBV.SatResult
+solveNode stateSpace inv (Node nodeId state) = do
+    putStrLn $ show nodeId <> ": "
+    let prop = stateSpace state     `SAnd`
+            --    pathConstraint state `SAnd`
+               (SNot $ inv state)
+    putStrLn $ "PathConstr: " <> show (pathConstraint state)
+    putStrLn $ "Prop: " <> (show $ SNot $ inv state)
+    s <- SBV.satWith SMT.prover
+            (SMT.toSMT [prop])
+    print s
+    pure s

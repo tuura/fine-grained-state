@@ -3,21 +3,21 @@ module Machine.Types.State where
 import           Data.Bifunctor
 import qualified Data.Map.Strict as Map
 import qualified Data.SBV        as SBV
-import           Machine.Types
 import           Machine.Decode
 import           Machine.Encode
+import           Machine.Types
 
 type Label = String
 
 -- | The state of symbolic computation
-data State = State { registers         :: Map.Map Register (Sym Value)
-                   , instructionCounter :: InstructionAddress -- Sym
+data State = State { registers           :: Map.Map Register (Sym Value)
+                   , instructionCounter  :: InstructionAddress -- Sym
                    , instructionRegister :: InstructionCode
-                   , flags :: Map.Map Flag (Sym Bool)
-                   , memory :: Map.Map MemoryAddress (Sym Value)
-                   , program :: Program
-                   , clock :: Clock
-                   , pathConstraintList :: [(Label, Sym Bool)]
+                   , flags               :: Map.Map Flag (Sym Bool)
+                   , memory              :: Map.Map MemoryAddress (Sym Value)
+                   , program             :: Program
+                   , clock               :: Clock
+                   , pathConstraintList  :: [(Label, Sym Bool)]
                    }
 
 appendConstraints :: [(Label, Sym Bool)] -> State -> State
@@ -30,9 +30,10 @@ renderState :: State -> String
 renderState state =
   "IC: " <> show (instructionCounter state) <> "\n" <>
   "IR: " <> show (decode $ instructionRegister state) <> "\n" <>
-  "Registers: " <> show (Map.toList $ registers state) <> "\n" <>
-  "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
-  "Memory: " <> show (filter (not . constZero . snd) . Map.toList $ memory state) <> "\n" <>
+  -- "Registers: " <> show (Map.toList $ registers state) <> "\n" <>
+  -- "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
+  "Halted: " <> show ((Map.!) (flags state) Halted) <> "\n" <>
+  -- "Memory: " <> show (filter (not . constZero . snd) . Map.toList $ memory state) <> "\n" <>
   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n"
   where constZero (SConst 0) = True
         constZero  _         = False
@@ -112,4 +113,3 @@ renderSolvedState (SolvedState state c) =
   "Flags: " <> show (Map.toList $ flags state) <> "\n" <>
   "Path Constraints: \n" <> renderPathConstraints (pathConstraintList state) <> "\n" <>
   "Solved Values: " <> renderSMTResult c
-

@@ -1,19 +1,19 @@
 module Machine.SMT where
 
-import qualified Data.Map.Strict as Map
-import qualified Data.Tree       as Tree
-import qualified Data.Set        as Set
-import qualified Data.SBV        as SBV
-import           Data.Monoid
 import           Control.Monad.Reader (ask)
-import           Control.Monad.Trans (liftIO)
-import           Data.Bool (bool)
-import           Data.Int (Int16, Int64)
+import           Control.Monad.Trans  (liftIO)
+import           Data.Bool            (bool)
+import           Data.Int             (Int16, Int64)
+import qualified Data.Map.Strict      as Map
+import           Data.Monoid
+import qualified Data.SBV             as SBV
+import qualified Data.Set             as Set
+import qualified Data.Tree            as Tree
 import           Machine.Decode
+import           Machine.Symbolic
 import           Machine.Types
 import           Machine.Types.State
 import           Machine.Types.Trace
-import           Machine.Symbolic
 
 -- | Walk the constraint gathering up the free variables.
 gatherFree :: Sym a -> Set.Set (Sym Value)
@@ -33,13 +33,13 @@ gatherFree (SLt l r)  = gatherFree l <> gatherFree r
 gatherFree (SConst _) = mempty
 
 -- | Create existential SVals for each of SAny's in the input.
-createSym :: [Sym Value] -> SBV.Symbolic (Map.Map Int SBV.SInt64)
+createSym :: [Sym Value] -> SBV.Symbolic (Map.Map String SBV.SInt64)
 createSym cs = do
   pairs <- traverse createSymPair cs
   pure $ Map.fromList pairs
-    where createSymPair :: Sym Value -> SBV.Symbolic (Int, SBV.SInt64)
+    where createSymPair :: Sym Value -> SBV.Symbolic (String, SBV.SInt64)
           createSymPair (SAny i) = do
-            v <- SBV.sInt64 (valName i)
+            v <- SBV.sInt64 i
             pure (i, v)
           createSymPair _ = error "Non-variable encountered."
 
@@ -59,7 +59,7 @@ type family ToSBV a where
     ToSBV a     = SBV.SBV a
 
 -- | Translate symbolic values into the SBV representation
-symToSMT :: SBV.SymWord a => Map.Map Int SBV.SInt64 -> Sym a -> SBV.Symbolic (ToSBV a)
+symToSMT :: SBV.SymWord a => Map.Map String SBV.SInt64 -> Sym a -> SBV.Symbolic (ToSBV a)
 symToSMT m (SEq l r) =
   (SBV..==) <$> symToSMT m l <*> symToSMT m r
 symToSMT m (SGt l r) =
@@ -88,7 +88,7 @@ symToSMT m (SOr l r) =
 symToSMT m (SAny i) =
   case Map.lookup i m of
     Just val -> pure val
-    Nothing -> error "Missing symbolic variable."
+    Nothing  -> error "Missing symbolic variable."
 
 -- | Solve the path constraints in a symbolic execution state
 solveSym :: State -> IO SolvedState
@@ -104,8 +104,8 @@ solveTrace = traverse solveSym
 conjoin :: [SBV.SBool] -> SBV.SBool
 conjoin = SBV.bAnd
 
-valName :: Int -> String
-valName i = "val_" <> (show i)
+-- valName :: Int -> String
+-- valName i = "val_" <> (show i)
 
 prover :: SBV.SMTConfig
 prover = SBV.z3 { SBV.verbose = True

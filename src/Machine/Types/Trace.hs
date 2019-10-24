@@ -1,16 +1,16 @@
 module Machine.Types.Trace where
 
-import Data.Word (Word16)
-import qualified Data.Tree as Tree
-import           Machine.Types
-import           Machine.Types.State
+import qualified Data.Tree           as Tree
+import           Data.Word           (Word16)
 import           Machine.Decode
 import           Machine.Encode
+import           Machine.Types
+import           Machine.Types.State
 
 type NodeId = Integer
 
-data Node s = Node { nodeId     :: NodeId
-                   , nodeBody   :: s
+data Node s = Node { nodeId   :: NodeId
+                   , nodeBody :: s
                    } deriving Functor
 
 instance Eq (Node s) where
@@ -90,4 +90,3 @@ exampleTree =
                       , Tree.Node 32 []
                       ]
          ]
-

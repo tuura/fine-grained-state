@@ -1,11 +1,12 @@
+{-# LANGUAGE ExistentialQuantification #-}
 module Machine.Types where
 
-import Data.Kind (Constraint)
-import Prelude hiding (Read, Monad, div, mod, abs)
-import qualified Prelude (Read, Monad, div, mod, abs)
-import Data.Word (Word8, Word16, Word64)
-import Data.Int (Int8, Int16, Int64)
-import Control.Selective
+import           Control.Selective
+import           Data.Int          (Int16, Int64, Int8)
+import           Data.Kind         (Constraint)
+import           Data.Word         (Word16, Word64, Word8)
+import           Prelude           hiding (Monad, Read, abs, div, mod)
+import qualified Prelude           (Monad, Read, abs, div, mod)
 
 -- | We amend the standard 'Monad' constraint to include 'Selective' into
 --   the hierarchy
@@ -47,27 +48,26 @@ class Unconstrained (a :: * -> *)
 instance Unconstrained a
 
 data InstructionImpl (c :: (* -> *) -> Constraint) where
-  Halt   :: InstructionImpl Applicative
-  Load   :: Register -> MemoryAddress -> InstructionImpl Functor
-  Set    :: Register -> SImm8 -> InstructionImpl Functor
-  Store  :: Register -> MemoryAddress -> InstructionImpl Functor
-  Add    :: Register -> MemoryAddress -> InstructionImpl Applicative
-  -- AddM   :: Register -> MemoryAddress -> InstructionImpl Monad
-  Sub    :: Register -> MemoryAddress -> InstructionImpl Applicative
-  Mul    :: Register -> MemoryAddress -> InstructionImpl Applicative
-  Div    :: Register -> MemoryAddress -> InstructionImpl Applicative
-  Mod    :: Register -> MemoryAddress -> InstructionImpl Applicative
-  Abs    :: Register -> InstructionImpl Applicative
-  Jump   :: SImm8 -> InstructionImpl Applicative
-  JumpZero :: SImm8 -> InstructionImpl Selective
-  LoadMI :: Register -> MemoryAddress -> InstructionImpl Prelude.Monad
+  Halt     :: InstructionImpl Applicative
+  Load     :: Register -> MemoryAddress -> InstructionImpl Functor
+  Set      :: Register -> SImm8         -> InstructionImpl Functor
+  Store    :: Register -> MemoryAddress -> InstructionImpl Functor
+  Add      :: Register -> MemoryAddress -> InstructionImpl Applicative
+  Sub      :: Register -> MemoryAddress -> InstructionImpl Applicative
+  Mul      :: Register -> MemoryAddress -> InstructionImpl Applicative
+  Div      :: Register -> MemoryAddress -> InstructionImpl Applicative
+  Mod      :: Register -> MemoryAddress -> InstructionImpl Applicative
+  Abs      :: Register                  -> InstructionImpl Applicative
+  Jump     :: SImm8                     -> InstructionImpl Applicative
+  JumpZero :: SImm8                     -> InstructionImpl Selective
+  LoadMI   :: Register -> MemoryAddress -> InstructionImpl Prelude.Monad
 
-  CmpEq :: Register -> MemoryAddress -> InstructionImpl Selective
-  CmpGt :: Register -> MemoryAddress -> InstructionImpl Selective
-  CmpLt :: Register -> MemoryAddress -> InstructionImpl Selective
+  CmpEq    :: Register  -> MemoryAddress -> InstructionImpl Selective
+  CmpGt    :: Register  -> MemoryAddress -> InstructionImpl Selective
+  CmpLt    :: Register  -> MemoryAddress -> InstructionImpl Selective
 
-  JumpCt :: SImm8 -> InstructionImpl Selective
-  JumpCf :: SImm8 -> InstructionImpl Selective
+  JumpCt   :: SImm8                      -> InstructionImpl Selective
+  JumpCf   :: SImm8                      -> InstructionImpl Selective
 
 deriving instance Eq  (InstructionImpl c)
 deriving instance Ord (InstructionImpl c)
@@ -112,7 +112,7 @@ type InstructionCode = Word16
 -- | Symbolic expressions
 data Sym a where
     SConst :: a -> Sym a
-    SAny   :: Int -> Sym Value
+    SAny   :: String -> Sym Value
     SAdd   :: Sym Value -> Sym Value -> Sym Value
     SSub   :: Sym Value -> Sym Value -> Sym Value
     SMul   :: Sym Value -> Sym Value -> Sym Value
@@ -129,20 +129,20 @@ data Sym a where
 -- deriving instance Show a => Show (Sym a)
 
 instance Show a => Show (Sym a) where
-    show (SAdd x y)   = "(" <> show x <> " + " <> show y <> ")"
-    show (SSub x y)   = "(" <> show x <> " - " <> show y <> ")"
-    show (SMul x y)   = "(" <> show x <> " * " <> show y <> ")"
-    show (SDiv x y)   = "(" <> show x <> " / " <> show y <> ")"
-    show (SMod x y)   = "(" <> show x <> " % " <> show y <> ")"
-    show (SAbs x  )   = "|" <> show x <> "|"
-    show (SConst x)   = show x
-    show (SAnd x y)   = "(" <> show x <> " & " <> show y <> ")"
-    show (SOr  x y)   = "(" <> show x <> " | " <> show y <> ")"
-    show (SAny n  )   = "val_" <> show n
-    show (SEq  x y)   = "(" <> show x <> " == " <> show y <> ")"
-    show (SGt  x y)   = "(" <> show x <> " > " <> show y <> ")"
-    show (SLt  x y)   = "(" <> show x <> " < " <> show y <> ")"
-    show (SNot b )    = "¬" <> show b
+    show (SAdd x y) = "(" <> show x <> " + " <> show y <> ")"
+    show (SSub x y) = "(" <> show x <> " - " <> show y <> ")"
+    show (SMul x y) = "(" <> show x <> " * " <> show y <> ")"
+    show (SDiv x y) = "(" <> show x <> " / " <> show y <> ")"
+    show (SMod x y) = "(" <> show x <> " % " <> show y <> ")"
+    show (SAbs x  ) = "|" <> show x <> "|"
+    show (SConst x) = show x
+    show (SAnd x y) = "(" <> show x <> " & " <> show y <> ")"
+    show (SOr  x y) = "(" <> show x <> " | " <> show y <> ")"
+    show (SAny n  ) = n
+    show (SEq  x y) = "(" <> show x <> " == " <> show y <> ")"
+    show (SGt  x y) = "(" <> show x <> " > " <> show y <> ")"
+    show (SLt  x y) = "(" <> show x <> " < " <> show y <> ")"
+    show (SNot b )  = "¬" <> show b
 
 instance Eq a => Eq (Sym a) where
     (SConst x) == (SConst y) = x == y
@@ -223,9 +223,9 @@ tryReduce = \case
 
     (SEq (SConst 0) (SConst 0)) -> SConst True
     (SEq x y) -> tryReduce x `SEq` tryReduce y
-    (SGt (SConst 0) (SConst 0)) -> SConst True
+    (SGt (SConst 0) (SConst 0)) -> SConst False
     (SGt x y) -> tryReduce x `SGt` tryReduce y
-    (SLt (SConst 0) (SConst 0)) -> SConst True
+    (SLt (SConst 0) (SConst 0)) -> SConst False
     (SLt x y) -> tryReduce x `SLt` tryReduce y
     s -> s
 
